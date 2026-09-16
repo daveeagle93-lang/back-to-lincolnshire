@@ -1,0 +1,14 @@
+[
+  { "id": "a1", "name": "A1 near Long Bennington", "ref": "A1", "lat": 53.02747, "lon": -0.76943, "boundaries": ["ceremonial", "administrative"] },
+  { "id": "a52", "name": "A52 near Grantham", "ref": "A52", "lat": 52.93545, "lon": -0.76173, "boundaries": ["ceremonial", "administrative"] },
+  { "id": "a17", "name": "A17 near Newark", "ref": "A17", "lat": 53.07944, "lon": -0.71032, "boundaries": ["ceremonial", "administrative"] },
+  { "id": "a16", "name": "A16 near Crowland", "ref": "A16", "lat": 52.66025, "lon": -0.17878, "boundaries": ["ceremonial", "administrative"] },
+  { "id": "a46", "name": "A46 near Farndon", "ref": "A46", "lat": 53.12762, "lon": -0.73236, "boundaries": ["ceremonial", "administrative"] },
+  { "id": "a57", "name": "A57 at Dunham Bridge", "ref": "A57", "lat": 53.26082, "lon": -0.77305, "boundaries": ["ceremonial", "administrative"] },
+  { "id": "a15-south", "name": "A15 near Market Deeping", "ref": "A15", "lat": 52.67367, "lon": -0.32883, "boundaries": ["ceremonial", "administrative"] },
+  { "id": "a6121", "name": "A6121 near Stamford", "ref": "A6121", "lat": 52.64696, "lon": -0.50396, "boundaries": ["ceremonial", "administrative"] },
+  { "id": "humber-bridge", "name": "Humber Bridge", "ref": "A15", "lat": 53.69692, "lon": -0.44915, "boundaries": ["ceremonial"] },
+  { "id": "a18", "name": "A18 near Grimsby", "ref": "A18", "lat": 53.58007, "lon": -0.31944, "boundaries": ["administrative"] },
+  { "id": "a180", "name": "A180 near Habrough", "ref": "A180", "lat": 53.61426, "lon": -0.29944, "boundaries": ["administrative"] },
+  { "id": "a15-north", "name": "A15 near Broughton", "ref": "A15", "lat": 53.46072, "lon": -0.55171, "boundaries": ["administrative"] }
+]
