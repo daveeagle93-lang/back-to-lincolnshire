@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Back to Lincolnshire</title>
+  <meta name="description" content="Back to Lincolnshire: The Yellow Belly Alarm - find out if you're in Lincolnshire, and if not, how to get back." />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="app-header">
+    <h1>Back to Lincolnshire</h1>
+    <p class="tagline">The Yellow Belly Alarm</p>
+  </header>
+
+  <main>
+    <div class="controls">
+      <div class="location-controls">
+        <button id="use-location-btn" type="button">Use my location</button>
+        <form id="address-form" class="address-form">
+          <label for="address-input" class="visually-hidden">Address or place name</label>
+          <input id="address-input" type="text" placeholder="Enter an address or place name" autocomplete="off" />
+          <button type="submit">Find</button>
+        </form>
+      </div>
+      <p id="location-message" class="message" role="status"></p>
+
+      <label class="boundary-toggle">
+        <span>Boundary:</span>
+        <select id="boundary-select">
+          <option value="ceremonial" selected>Ceremonial</option>
+          <option value="administrative">Administrative</option>
+        </select>
+      </label>
+    </div>
+
+    <div id="map"></div>
+
+    <p id="status-message" class="status-message" role="status"></p>
+  </main>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script type="module" src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,13 @@
+{
+  "name": "back-to-lincolnshire",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "The Yellow Belly Alarm - data pipeline and static site for backtolincolnshire.co.uk",
+  "license": "MIT",
+  "scripts": {
+    "fetch-boundaries": "node scripts/fetch-boundaries.mjs",
+    "build-boundaries": "node scripts/build-boundaries.mjs",
+    "verify-boundaries": "node scripts/verify-boundaries.mjs"
+  }
+}

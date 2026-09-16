@@ -1,0 +1,150 @@
+[
+  {
+    "name": "Lincoln",
+    "lat": 53.2293545,
+    "lon": -0.5404819,
+    "display_name": "Lincoln, Lincolnshire, Greater Lincolnshire, England, LN2 1DA, United Kingdom",
+    "osm_id": 10671639,
+    "osm_type": "node",
+    "address": {
+      "city": "Lincoln",
+      "county": "Lincolnshire",
+      "ISO3166-2-lvl6": "GB-LIN",
+      "state_district": "Greater Lincolnshire",
+      "state": "England",
+      "ISO3166-2-lvl4": "GB-ENG",
+      "postcode": "LN2 1DA",
+      "country": "United Kingdom",
+      "country_code": "gb"
+    },
+    "source_request_url": "https://nominatim.openstreetmap.org/search?q=Lincoln%2C+United+Kingdom&format=jsonv2&addressdetails=1&limit=5",
+    "fetched_at": "2026-09-16T20:05:05.470Z"
+  },
+  {
+    "name": "Boston",
+    "lat": 52.9776561,
+    "lon": -0.0237985,
+    "display_name": "Boston, Lincolnshire, Greater Lincolnshire, England, United Kingdom",
+    "osm_id": 2776224,
+    "osm_type": "relation",
+    "address": {
+      "town": "Boston",
+      "city": "Boston",
+      "county": "Lincolnshire",
+      "ISO3166-2-lvl6": "GB-LIN",
+      "state_district": "Greater Lincolnshire",
+      "state": "England",
+      "ISO3166-2-lvl4": "GB-ENG",
+      "country": "United Kingdom",
+      "country_code": "gb"
+    },
+    "source_request_url": "https://nominatim.openstreetmap.org/search?q=Boston%2C+United+Kingdom&format=jsonv2&addressdetails=1&limit=5",
+    "fetched_at": "2026-09-16T20:05:06.899Z"
+  },
+  {
+    "name": "Grimsby",
+    "lat": 53.5671407,
+    "lon": -0.0788045,
+    "display_name": "Grimsby, North East Lincolnshire, Greater Lincolnshire, England, DN31 1QG, United Kingdom",
+    "osm_id": 21639941,
+    "osm_type": "node",
+    "address": {
+      "town": "Grimsby",
+      "county": "North East Lincolnshire",
+      "ISO3166-2-lvl6": "GB-NEL",
+      "state_district": "Greater Lincolnshire",
+      "state": "England",
+      "ISO3166-2-lvl4": "GB-ENG",
+      "postcode": "DN31 1QG",
+      "country": "United Kingdom",
+      "country_code": "gb"
+    },
+    "source_request_url": "https://nominatim.openstreetmap.org/search?q=Grimsby%2C+United+Kingdom&format=jsonv2&addressdetails=1&limit=5",
+    "fetched_at": "2026-09-16T20:05:08.199Z"
+  },
+  {
+    "name": "Scunthorpe",
+    "lat": 53.5922488,
+    "lon": -0.6450841,
+    "display_name": "Scunthorpe, North Lincolnshire, Greater Lincolnshire, England, DN15 6SS, United Kingdom",
+    "osm_id": 26701165,
+    "osm_type": "node",
+    "address": {
+      "town": "Scunthorpe",
+      "county": "North Lincolnshire",
+      "ISO3166-2-lvl6": "GB-NLN",
+      "state_district": "Greater Lincolnshire",
+      "state": "England",
+      "ISO3166-2-lvl4": "GB-ENG",
+      "postcode": "DN15 6SS",
+      "country": "United Kingdom",
+      "country_code": "gb"
+    },
+    "source_request_url": "https://nominatim.openstreetmap.org/search?q=Scunthorpe%2C+United+Kingdom&format=jsonv2&addressdetails=1&limit=5",
+    "fetched_at": "2026-09-16T20:05:09.457Z"
+  },
+  {
+    "name": "Newark-on-Trent",
+    "lat": 53.0761693,
+    "lon": -0.8092339,
+    "display_name": "Newark on Trent, Newark and Sherwood, Nottinghamshire, East Midlands, England, NG24 1XA, United Kingdom",
+    "osm_id": 26984887,
+    "osm_type": "node",
+    "address": {
+      "town": "Newark on Trent",
+      "city": "Newark and Sherwood",
+      "county": "Nottinghamshire",
+      "ISO3166-2-lvl6": "GB-NTT",
+      "state_district": "East Midlands",
+      "state": "England",
+      "ISO3166-2-lvl4": "GB-ENG",
+      "postcode": "NG24 1XA",
+      "country": "United Kingdom",
+      "country_code": "gb"
+    },
+    "source_request_url": "https://nominatim.openstreetmap.org/search?q=Newark-on-Trent%2C+United+Kingdom&format=jsonv2&addressdetails=1&limit=5",
+    "fetched_at": "2026-09-16T20:05:10.775Z"
+  },
+  {
+    "name": "Peterborough",
+    "lat": 52.5725769,
+    "lon": -0.2427336,
+    "display_name": "Peterborough, Cambridgeshire, Cambridgeshire and Peterborough, England, PE1 1XH, United Kingdom",
+    "osm_id": 17951258,
+    "osm_type": "node",
+    "address": {
+      "city": "Peterborough",
+      "county": "Cambridgeshire",
+      "ISO3166-2-lvl6": "GB-CAM",
+      "state_district": "Cambridgeshire and Peterborough",
+      "state": "England",
+      "ISO3166-2-lvl4": "GB-ENG",
+      "postcode": "PE1 1XH",
+      "country": "United Kingdom",
+      "country_code": "gb"
+    },
+    "source_request_url": "https://nominatim.openstreetmap.org/search?q=Peterborough%2C+United+Kingdom&format=jsonv2&addressdetails=1&limit=5",
+    "fetched_at": "2026-09-16T20:05:12.080Z"
+  },
+  {
+    "name": "Melton Mowbray",
+    "lat": 52.7645663,
+    "lon": -0.8868896,
+    "display_name": "Melton Mowbray, Melton, Leicestershire, England, LE13 0PU, United Kingdom",
+    "osm_id": 26679128,
+    "osm_type": "node",
+    "address": {
+      "town": "Melton Mowbray",
+      "city": "Melton",
+      "county": "Leicestershire",
+      "ISO3166-2-lvl6": "GB-LEC",
+      "state": "England",
+      "ISO3166-2-lvl4": "GB-ENG",
+      "postcode": "LE13 0PU",
+      "country": "United Kingdom",
+      "country_code": "gb"
+    },
+    "source_request_url": "https://nominatim.openstreetmap.org/search?q=Melton+Mowbray%2C+United+Kingdom&format=jsonv2&addressdetails=1&limit=5",
+    "fetched_at": "2026-09-16T20:05:13.717Z"
+  }
+]
