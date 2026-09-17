@@ -25,6 +25,10 @@ countdown, alarm, and abuse protection for the free APIs it relies on.
 This repo is being built in stages (see `back-to-lincolnshire-brief.md` for
 the full build brief); the app code lands in later commits.
 
+See [`docs/architecture.md`](docs/architecture.md) for the non-obvious "why"
+behind a few design decisions (the crossing-verification method, local sunset
+calculation, duplicated CSP, and the rate limiter's fail-open behavior).
+
 ## Local development
 
 This is a static site with no build step. Once the app code exists
