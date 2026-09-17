@@ -1,4 +1,4 @@
-const CACHE_VERSION = "v2";
+const CACHE_VERSION = "v3";
 const APP_SHELL_CACHE = `back-to-lincolnshire-shell-${CACHE_VERSION}`;
 const RUNTIME_CACHE = `back-to-lincolnshire-runtime-${CACHE_VERSION}`;
 
