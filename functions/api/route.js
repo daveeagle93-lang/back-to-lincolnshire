@@ -64,10 +64,12 @@ export async function onRequestGet(context) {
   try {
     response = await fetch(osrmUrl);
   } catch (err) {
+    console.error("OSRM fetch threw", err.message);
     return jsonError("Routing is temporarily unavailable", 502);
   }
 
   if (!response.ok) {
+    console.error("OSRM returned non-OK status", response.status, await response.text());
     return jsonError("Routing is temporarily unavailable", 502);
   }
 
