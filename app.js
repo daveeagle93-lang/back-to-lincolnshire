@@ -17,21 +17,20 @@ const UK_TIME_FORMATTER = new Intl.DateTimeFormat("en-GB", {
   hour12: false,
 });
 
-const ALARM_STATE_CLASSES = ["state-green", "state-amber", "state-red", "state-passed"];
+const ALARM_STATE_CLASSES = ["state-green", "state-amber", "state-red"];
 // Matches the body.state-* background colours in styles.css, so the status bar
 // (theme-color) blends with the page instead of clashing with it.
 const STATE_THEME_COLORS = {
   green: "#d9f0da",
   amber: "#ffe9c2",
   red: "#f2e0de",
-  passed: "#ececec",
 };
 const DEFAULT_THEME_COLOR = "#1a5d1a"; // matches the header, and index.html's static default
 const themeColorMeta = document.querySelector('meta[name="theme-color"]');
 
 // Mirrors the alarm state onto <body> (full-page background, see styles.css) and
 // the theme-color meta tag (phone status bar). `state` is one of
-// "green"/"amber"/"red"/"passed", or null/undefined for no active state.
+// "green"/"amber"/"red", or null/undefined for no active state.
 function setPageState(state) {
   document.body.classList.remove(...ALARM_STATE_CLASSES);
   if (state) document.body.classList.add(`state-${state}`);
@@ -394,9 +393,9 @@ function tickAlarm() {
   if (hasDeadlinePassed(rawDeadlineMs, Date.now())) {
     alarmBannerEl.hidden = false;
     alarmBannerEl.classList.remove(...ALARM_STATE_CLASSES);
-    alarmBannerEl.classList.add("state-passed");
-    setPageState("passed");
-    alarmMessageEl.textContent = `${formatPresetLabel(selectedPreset, rawDeadlineMs)} has already passed today.`;
+    alarmBannerEl.classList.add("state-red");
+    setPageState("red");
+    alarmMessageEl.textContent = `${formatPresetLabel(selectedPreset, rawDeadlineMs)} has already passed today — you'd best hurry back!`;
     alarmCountdownEl.textContent = "";
     alarmStaleNoticeEl.hidden = true;
     releaseWakeLock();

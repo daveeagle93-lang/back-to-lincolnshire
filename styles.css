@@ -30,12 +30,9 @@ body.state-amber {
 
 body.state-red {
   /* Desaturated (dusty terracotta, not pure #f00) — a fully saturated red across
-     the whole viewport is a known OLED "vibration" discomfort issue. */
+     the whole viewport is a known OLED "vibration" discomfort issue. Also used
+     for the "deadline already passed" case (see tickAlarm), not just a low margin. */
   background: #f2e0de;
-}
-
-body.state-passed {
-  background: #ececec;
 }
 
 .app-header {
@@ -273,10 +270,6 @@ button:hover {
 
 .alarm-banner.state-red {
   color: #a33;
-}
-
-.alarm-banner.state-passed {
-  color: #444;
 }
 
 .alarm-message {
