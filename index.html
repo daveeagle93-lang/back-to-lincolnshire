@@ -43,6 +43,19 @@
       <p id="route-primary" class="route-primary"></p>
       <ul id="route-alternatives" class="route-alternatives"></ul>
     </div>
+
+    <div class="deadline-controls">
+      <label for="deadline-time">Arrival deadline</label>
+      <input id="deadline-time" type="time" value="15:00" />
+      <label for="deadline-buffer">Buffer (minutes early)</label>
+      <input id="deadline-buffer" type="number" min="0" max="60" step="1" value="10" />
+    </div>
+
+    <div id="alarm-banner" class="alarm-banner" hidden>
+      <p id="alarm-message" class="alarm-message"></p>
+      <p id="alarm-countdown" class="alarm-countdown"></p>
+      <p id="alarm-stale-notice" class="alarm-stale-notice" hidden></p>
+    </div>
   </main>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>

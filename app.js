@@ -1,4 +1,11 @@
 import { isInsideBoundary } from "./point-in-polygon.js";
+import {
+  getEffectiveDeadline,
+  computeAlarmState,
+  shouldFireAlarm,
+  getRecalcIntervalMs,
+  hasMovedSignificantly,
+} from "./deadline.js";
 
 const BOUNDARY_URLS = {
   ceremonial: "data/boundaries/lincolnshire-ceremonial.geojson",
@@ -8,6 +15,8 @@ const BOUNDARY_URLS = {
 const CROSSINGS_URL = "data/crossings.json";
 
 const BOUNDARY_STORAGE_KEY = "back-to-lincolnshire:boundary-type";
+const DEADLINE_TIME_STORAGE_KEY = "back-to-lincolnshire:deadline-time";
+const BUFFER_MINUTES_STORAGE_KEY = "back-to-lincolnshire:buffer-minutes";
 
 const locationMessageEl = document.getElementById("location-message");
 const statusMessageEl = document.getElementById("status-message");
@@ -18,6 +27,12 @@ const boundarySelect = document.getElementById("boundary-select");
 const routeResultEl = document.getElementById("route-result");
 const routePrimaryEl = document.getElementById("route-primary");
 const routeAlternativesEl = document.getElementById("route-alternatives");
+const deadlineTimeInput = document.getElementById("deadline-time");
+const deadlineBufferInput = document.getElementById("deadline-buffer");
+const alarmBannerEl = document.getElementById("alarm-banner");
+const alarmMessageEl = document.getElementById("alarm-message");
+const alarmCountdownEl = document.getElementById("alarm-countdown");
+const alarmStaleNoticeEl = document.getElementById("alarm-stale-notice");
 
 // Map, centred on Lincolnshire by default.
 const map = L.map("map").setView([53.1, -0.3], 8);
@@ -32,6 +47,12 @@ let lastPoint = null; // [lon, lat]
 let crossings = [];
 let routeLayer = null;
 let routeRequestId = 0;
+let lastFastestDurationSeconds = null;
+let lastFastestCrossingName = null;
+let lastGoodResultAt = null; // Date
+let previousAlarmState = null;
+let lastRecalcPoint = null; // [lon, lat] used for the most recent successful route computation
+let audioCtx = null;
 
 function getBoundaryType() {
   const stored = localStorage.getItem(BOUNDARY_STORAGE_KEY);
@@ -99,6 +120,10 @@ function clearRoute() {
     map.removeLayer(routeLayer);
     routeLayer = null;
   }
+  lastFastestDurationSeconds = null;
+  lastFastestCrossingName = null;
+  lastGoodResultAt = null;
+  previousAlarmState = null;
 }
 
 async function computeRoute(type) {
@@ -117,6 +142,8 @@ async function computeRoute(type) {
     .sort((a, b) => a.distance - b.distance)
     .slice(0, 5)
     .map((entry) => entry.crossing);
+
+  lastRecalcPoint = lastPoint;
 
   const requestId = ++routeRequestId;
   routeResultEl.hidden = false;
@@ -150,7 +177,13 @@ async function computeRoute(type) {
     .sort((a, b) => a.duration - b.duration);
 
   if (!routes.length) {
-    routePrimaryEl.textContent = "Couldn't calculate a route right now.";
+    if (lastFastestDurationSeconds !== null) {
+      const minutes = Math.round(lastFastestDurationSeconds / 60);
+      const asOf = lastGoodResultAt.toLocaleTimeString();
+      routePrimaryEl.textContent = `Fastest route back: ${lastFastestCrossingName}, about ${minutes} minutes (as of ${asOf})`;
+    } else {
+      routePrimaryEl.textContent = "Couldn't calculate a route right now.";
+    }
     routeAlternativesEl.innerHTML = "";
     return;
   }
@@ -158,6 +191,9 @@ async function computeRoute(type) {
   const fastest = routes[0];
   const minutes = Math.round(fastest.duration / 60);
   routePrimaryEl.textContent = `Fastest route back: ${fastest.crossing.name}, about ${minutes} minutes`;
+  lastFastestDurationSeconds = fastest.duration;
+  lastFastestCrossingName = fastest.crossing.name;
+  lastGoodResultAt = new Date();
 
   routeAlternativesEl.innerHTML = "";
   routes.slice(1, 3).forEach((entry) => {
@@ -189,6 +225,153 @@ function setPoint(lon, lat) {
     clearRoute();
   }
 }
+
+function initDeadlineInputs() {
+  const storedTime = localStorage.getItem(DEADLINE_TIME_STORAGE_KEY);
+  if (storedTime) deadlineTimeInput.value = storedTime;
+  const storedBuffer = localStorage.getItem(BUFFER_MINUTES_STORAGE_KEY);
+  if (storedBuffer !== null) deadlineBufferInput.value = storedBuffer;
+}
+
+function formatCountdown(msRemaining) {
+  const overdue = msRemaining < 0;
+  const totalSeconds = Math.floor(Math.abs(msRemaining) / 1000);
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+  const mm = String(minutes).padStart(2, "0");
+  const ss = String(seconds).padStart(2, "0");
+  const time = hours > 0 ? `${hours}:${mm}:${ss}` : `${minutes}:${ss}`;
+  return overdue ? `${time} over` : `${time} to go`;
+}
+
+function tickAlarm() {
+  if (lastFastestDurationSeconds === null) {
+    alarmBannerEl.hidden = true;
+    return;
+  }
+
+  const bufferMinutes = Number(deadlineBufferInput.value);
+  const effectiveDeadline = getEffectiveDeadline(deadlineTimeInput.value, bufferMinutes);
+  const result = computeAlarmState(Date.now(), effectiveDeadline.getTime(), lastFastestDurationSeconds);
+  if (!result) {
+    alarmBannerEl.hidden = true;
+    return;
+  }
+
+  alarmBannerEl.hidden = false;
+  alarmBannerEl.classList.remove("state-green", "state-amber", "state-red");
+  alarmBannerEl.classList.add(`state-${result.state}`);
+
+  const minutesSpare = Math.round(result.marginSeconds / 60);
+  if (result.state === "green") {
+    alarmMessageEl.textContent = `You'll make it, with ${minutesSpare} minutes to spare.`;
+  } else if (result.state === "amber") {
+    alarmMessageEl.textContent = `Cutting it close — about ${minutesSpare} minutes of margin left.`;
+  } else {
+    alarmMessageEl.textContent = "You won't make it — leave now!";
+  }
+
+  alarmCountdownEl.textContent = formatCountdown(effectiveDeadline.getTime() - Date.now());
+
+  const staleMs = lastGoodResultAt ? Date.now() - lastGoodResultAt.getTime() : 0;
+  if (lastGoodResultAt && staleMs > 3 * 60 * 1000) {
+    alarmStaleNoticeEl.hidden = false;
+    alarmStaleNoticeEl.textContent = `Estimate as of ${lastGoodResultAt.toLocaleTimeString()}`;
+  } else {
+    alarmStaleNoticeEl.hidden = true;
+  }
+
+  if (shouldFireAlarm(previousAlarmState, result.state)) {
+    fireAlarm();
+  }
+  previousAlarmState = result.state;
+}
+
+function unlockAudioContext() {
+  const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+  if (!AudioContextClass) return;
+  if (!audioCtx) {
+    audioCtx = new AudioContextClass();
+  } else if (audioCtx.state === "suspended") {
+    audioCtx.resume();
+  }
+}
+
+function playAlarmSound() {
+  if (!audioCtx) return; // not yet unlocked by a user gesture
+  const beepCount = 3;
+  const beepDuration = 0.15;
+  const gap = 0.1;
+  for (let i = 0; i < beepCount; i++) {
+    const startTime = audioCtx.currentTime + i * (beepDuration + gap);
+    const oscillator = audioCtx.createOscillator();
+    const gainNode = audioCtx.createGain();
+    oscillator.frequency.value = 880;
+    oscillator.connect(gainNode);
+    gainNode.connect(audioCtx.destination);
+    gainNode.gain.setValueAtTime(0, startTime);
+    gainNode.gain.linearRampToValueAtTime(0.3, startTime + 0.02);
+    gainNode.gain.linearRampToValueAtTime(0, startTime + beepDuration);
+    oscillator.start(startTime);
+    oscillator.stop(startTime + beepDuration);
+  }
+}
+
+function fireAlarm() {
+  if ("Notification" in window && Notification.permission === "granted") {
+    try {
+      new Notification("Back to Lincolnshire", { body: "You won't make it — leave now!" });
+    } catch (err) {
+      // Some browsers throw if not in a suitable context; fall through to the audible alarm.
+    }
+  }
+  playAlarmSound();
+}
+
+function getCurrentPosition() {
+  return new Promise((resolve, reject) => {
+    navigator.geolocation.getCurrentPosition(resolve, reject);
+  });
+}
+
+async function attemptRecalc(type) {
+  if (document.visibilityState !== "visible") return;
+  if (!isOutsideBoundary(type) || !("geolocation" in navigator)) return;
+  let position;
+  try {
+    position = await getCurrentPosition();
+  } catch (err) {
+    return;
+  }
+  const newPoint = [position.coords.longitude, position.coords.latitude];
+  if (!hasMovedSignificantly(lastRecalcPoint, newPoint)) return;
+  setPoint(newPoint[0], newPoint[1]);
+  lastRecalcPoint = newPoint;
+}
+
+function scheduleRecalc() {
+  const type = boundarySelect.value;
+  let delay = 120000; // fallback if we don't yet have a deadline-based figure
+  if (lastFastestDurationSeconds !== null) {
+    const bufferMinutes = Number(deadlineBufferInput.value);
+    const effectiveDeadline = getEffectiveDeadline(deadlineTimeInput.value, bufferMinutes);
+    delay = getRecalcIntervalMs(effectiveDeadline.getTime() - Date.now());
+  }
+  setTimeout(() => attemptRecalc(type).finally(scheduleRecalc), delay);
+}
+
+deadlineTimeInput.addEventListener("input", () => {
+  localStorage.setItem(DEADLINE_TIME_STORAGE_KEY, deadlineTimeInput.value);
+  tickAlarm();
+});
+
+deadlineBufferInput.addEventListener("input", () => {
+  localStorage.setItem(BUFFER_MINUTES_STORAGE_KEY, deadlineBufferInput.value);
+  tickAlarm();
+});
+
+document.body.addEventListener("click", unlockAudioContext, { once: true });
 
 boundarySelect.addEventListener("change", () => {
   const type = boundarySelect.value;
@@ -274,5 +457,15 @@ async function loadBoundaries() {
   drawBoundary(type);
   updateStatusMessage(type);
 }
+
+initDeadlineInputs();
+tickAlarm();
+setInterval(tickAlarm, 1000);
+
+if ("Notification" in window && Notification.permission === "default") {
+  Notification.requestPermission();
+}
+
+scheduleRecalc();
 
 loadBoundaries();

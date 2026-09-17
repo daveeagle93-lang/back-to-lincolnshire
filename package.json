@@ -8,6 +8,7 @@
   "scripts": {
     "fetch-boundaries": "node scripts/fetch-boundaries.mjs",
     "build-boundaries": "node scripts/build-boundaries.mjs",
-    "verify-boundaries": "node scripts/verify-boundaries.mjs"
+    "verify-boundaries": "node scripts/verify-boundaries.mjs",
+    "test-deadline-state": "node scripts/test-deadline-state.mjs"
   }
 }
