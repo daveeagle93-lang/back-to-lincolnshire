@@ -5,6 +5,12 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>Back to Lincolnshire</title>
   <meta name="description" content="Back to Lincolnshire: The Yellow Belly Alarm - find out if you're in Lincolnshire, and if not, how to get back." />
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />
+  <meta name="theme-color" content="#1a5d1a" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Back to Lincs" />
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <link rel="stylesheet" href="styles.css" />
 </head>
@@ -15,6 +21,10 @@
   </header>
 
   <main>
+    <button id="install-btn" type="button" hidden>Install app</button>
+    <p id="ios-install-hint" class="ios-install-hint" hidden>Install this app: tap <strong>Share</strong>, then <strong>Add to Home Screen</strong>.</p>
+    <p id="offline-banner" class="offline-banner" hidden>You're offline — this estimate may be stale.</p>
+
     <div class="controls">
       <div class="location-controls">
         <button id="use-location-btn" type="button">Use my location</button>
@@ -60,5 +70,10 @@
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script type="module" src="app.js"></script>
+  <script>
+    if ("serviceWorker" in navigator) {
+      window.addEventListener("load", () => navigator.serviceWorker.register("/sw.js"));
+    }
+  </script>
 </body>
 </html>

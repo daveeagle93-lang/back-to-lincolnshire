@@ -33,6 +33,9 @@ const alarmBannerEl = document.getElementById("alarm-banner");
 const alarmMessageEl = document.getElementById("alarm-message");
 const alarmCountdownEl = document.getElementById("alarm-countdown");
 const alarmStaleNoticeEl = document.getElementById("alarm-stale-notice");
+const installBtnEl = document.getElementById("install-btn");
+const iosInstallHintEl = document.getElementById("ios-install-hint");
+const offlineBannerEl = document.getElementById("offline-banner");
 
 // Map, centred on Lincolnshire by default.
 const map = L.map("map").setView([53.1, -0.3], 8);
@@ -53,6 +56,8 @@ let lastGoodResultAt = null; // Date
 let previousAlarmState = null;
 let lastRecalcPoint = null; // [lon, lat] used for the most recent successful route computation
 let audioCtx = null;
+let wakeLock = null;
+let deferredInstallPrompt = null;
 
 function getBoundaryType() {
   const stored = localStorage.getItem(BOUNDARY_STORAGE_KEY);
@@ -155,8 +160,11 @@ async function computeRoute(type) {
       fetch(
         `https://router.project-osrm.org/route/v1/driving/${lastPoint[0]},${lastPoint[1]};${crossing.lon},${crossing.lat}?overview=full&geometries=geojson`
       )
-        .then((response) => response.json())
-        .then((data) => {
+        .then((response) => {
+          const cachedAt = response.headers.get("X-Cached-At");
+          return response.json().then((data) => ({ data, cachedAt }));
+        })
+        .then(({ data, cachedAt }) => {
           const route = data.routes && data.routes[0];
           if (!route) throw new Error("No route returned");
           return {
@@ -164,6 +172,7 @@ async function computeRoute(type) {
             duration: route.duration,
             distance: route.distance,
             geometry: route.geometry,
+            cachedAt, // set when this came from the SW's runtime cache fallback, not a live network response
           };
         })
     )
@@ -190,10 +199,18 @@ async function computeRoute(type) {
 
   const fastest = routes[0];
   const minutes = Math.round(fastest.duration / 60);
-  routePrimaryEl.textContent = `Fastest route back: ${fastest.crossing.name}, about ${minutes} minutes`;
   lastFastestDurationSeconds = fastest.duration;
   lastFastestCrossingName = fastest.crossing.name;
-  lastGoodResultAt = new Date();
+  if (fastest.cachedAt) {
+    // Served from the service worker's offline cache fallback, not a live network
+    // response — show it as such rather than presenting it as fresh.
+    lastGoodResultAt = new Date(fastest.cachedAt);
+    const asOf = lastGoodResultAt.toLocaleTimeString();
+    routePrimaryEl.textContent = `Fastest route back: ${fastest.crossing.name}, about ${minutes} minutes (as of ${asOf})`;
+  } else {
+    lastGoodResultAt = new Date();
+    routePrimaryEl.textContent = `Fastest route back: ${fastest.crossing.name}, about ${minutes} minutes`;
+  }
 
   routeAlternativesEl.innerHTML = "";
   routes.slice(1, 3).forEach((entry) => {
@@ -248,14 +265,18 @@ function formatCountdown(msRemaining) {
 function tickAlarm() {
   if (lastFastestDurationSeconds === null) {
     alarmBannerEl.hidden = true;
+    releaseWakeLock();
     return;
   }
+
+  if (!wakeLock) requestWakeLock();
 
   const bufferMinutes = Number(deadlineBufferInput.value);
   const effectiveDeadline = getEffectiveDeadline(deadlineTimeInput.value, bufferMinutes);
   const result = computeAlarmState(Date.now(), effectiveDeadline.getTime(), lastFastestDurationSeconds);
   if (!result) {
     alarmBannerEl.hidden = true;
+    releaseWakeLock();
     return;
   }
 
@@ -286,6 +307,22 @@ function tickAlarm() {
     fireAlarm();
   }
   previousAlarmState = result.state;
+}
+
+async function requestWakeLock() {
+  if (!("wakeLock" in navigator)) return;
+  try {
+    wakeLock = await navigator.wakeLock.request("screen");
+  } catch (err) {
+    // e.g. not allowed while hidden, or unsupported; fail silently, this is a nice-to-have.
+  }
+}
+
+function releaseWakeLock() {
+  if (wakeLock) {
+    wakeLock.release().catch(() => {});
+    wakeLock = null;
+  }
 }
 
 function unlockAudioContext() {
@@ -372,6 +409,15 @@ deadlineBufferInput.addEventListener("input", () => {
 });
 
 document.body.addEventListener("click", unlockAudioContext, { once: true });
+// iOS Safari's autoplay-unlock is most reliably satisfied by a touch gesture; add
+// touchend alongside click since unlockAudioContext is idempotent.
+document.body.addEventListener("touchend", unlockAudioContext, { once: true });
+
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "visible" && lastFastestDurationSeconds !== null) {
+    requestWakeLock();
+  }
+});
 
 boundarySelect.addEventListener("change", () => {
   const type = boundarySelect.value;
@@ -429,14 +475,19 @@ addressForm.addEventListener("submit", async (event) => {
 
   try {
     const response = await fetch(url);
+    const cachedAt = response.headers.get("X-Cached-At");
     const results = await response.json();
     if (!results.length) {
       locationMessageEl.textContent = "No results found.";
       return;
     }
     const { lat, lon } = results[0];
-    locationMessageEl.textContent = "";
     setPoint(parseFloat(lon), parseFloat(lat));
+    // A cachedAt header means this is a stale SW-cache fallback, not a live geocode —
+    // say so rather than silently presenting it as current.
+    locationMessageEl.textContent = cachedAt
+      ? `Showing a cached search result from ${new Date(cachedAt).toLocaleTimeString()} (offline).`
+      : "";
   } catch (err) {
     locationMessageEl.textContent = "Something went wrong searching for that address.";
   }
@@ -469,3 +520,33 @@ if ("Notification" in window && Notification.permission === "default") {
 scheduleRecalc();
 
 loadBoundaries();
+
+offlineBannerEl.hidden = navigator.onLine;
+window.addEventListener("online", () => {
+  offlineBannerEl.hidden = true;
+});
+window.addEventListener("offline", () => {
+  offlineBannerEl.hidden = false;
+});
+
+const isIos = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+const isStandalone =
+  window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone === true;
+
+if (isIos && !isStandalone) {
+  iosInstallHintEl.hidden = false;
+}
+
+window.addEventListener("beforeinstallprompt", (event) => {
+  event.preventDefault();
+  deferredInstallPrompt = event;
+  if (!isStandalone) installBtnEl.hidden = false;
+});
+
+installBtnEl.addEventListener("click", async () => {
+  if (!deferredInstallPrompt) return;
+  deferredInstallPrompt.prompt();
+  await deferredInstallPrompt.userChoice;
+  deferredInstallPrompt = null;
+  installBtnEl.hidden = true;
+});
