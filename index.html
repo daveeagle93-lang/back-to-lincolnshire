@@ -5,6 +5,16 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>Back to Lincolnshire</title>
   <meta name="description" content="Back to Lincolnshire: The Yellow Belly Alarm - find out if you're in Lincolnshire, and if not, how to get back." />
+  <meta property="og:type" content="website" />
+  <meta property="og:site_name" content="Back to Lincolnshire" />
+  <meta property="og:title" content="Back to Lincolnshire — The Yellow Belly Alarm" />
+  <meta property="og:description" content="Find out if you're already in Lincolnshire, and if not, how long it'll take to get back — with a deadline countdown and alarm." />
+  <meta property="og:url" content="https://www.backtolincolnshire.co.uk/" />
+  <meta property="og:image" content="https://www.backtolincolnshire.co.uk/icons/icon-512.png" />
+  <meta name="twitter:card" content="summary" />
+  <meta name="twitter:title" content="Back to Lincolnshire — The Yellow Belly Alarm" />
+  <meta name="twitter:description" content="Find out if you're already in Lincolnshire, and if not, how long it'll take to get back — with a deadline countdown and alarm." />
+  <meta name="twitter:image" content="https://www.backtolincolnshire.co.uk/icons/icon-512.png" />
   <link rel="manifest" href="manifest.webmanifest" />
   <link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />
   <meta name="theme-color" content="#1a5d1a" />
@@ -24,6 +34,8 @@
     <button id="install-btn" type="button" hidden>Install app</button>
     <p id="ios-install-hint" class="ios-install-hint" hidden>Install this app: tap <strong>Share</strong>, then <strong>Add to Home Screen</strong>.</p>
     <p id="offline-banner" class="offline-banner" hidden>You're offline — this estimate may be stale.</p>
+    <p class="intro">Are you making it back to Lincolnshire in time?</p>
+    <p id="app-error" class="app-error" hidden></p>
 
     <div class="controls">
       <div class="location-controls">
@@ -52,6 +64,7 @@
     <div id="route-result" class="route-result" hidden>
       <p id="route-primary" class="route-primary"></p>
       <ul id="route-alternatives" class="route-alternatives"></ul>
+      <p class="route-caveat">Drive times are estimates from a free routing service and don't account for live traffic, roadworks or closures.</p>
     </div>
 
     <div class="deadline-controls">

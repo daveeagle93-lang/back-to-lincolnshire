@@ -36,6 +36,7 @@ const alarmStaleNoticeEl = document.getElementById("alarm-stale-notice");
 const installBtnEl = document.getElementById("install-btn");
 const iosInstallHintEl = document.getElementById("ios-install-hint");
 const offlineBannerEl = document.getElementById("offline-banner");
+const appErrorEl = document.getElementById("app-error");
 
 // Map, centred on Lincolnshire by default.
 const map = L.map("map").setView([53.1, -0.3], 8);
@@ -58,6 +59,10 @@ let lastRecalcPoint = null; // [lon, lat] used for the most recent successful ro
 let audioCtx = null;
 let wakeLock = null;
 let deferredInstallPrompt = null;
+const geocodeCache = new Map(); // normalized query -> { lat, lon, cachedAt: Date }
+let geocodeRequestId = 0;
+let lastOsrmBatchAt = 0;
+const OSRM_BATCH_MIN_INTERVAL_MS = 1500;
 
 function getBoundaryType() {
   const stored = localStorage.getItem(BOUNDARY_STORAGE_KEY);
@@ -155,12 +160,23 @@ async function computeRoute(type) {
   routePrimaryEl.textContent = "Calculating route...";
   routeAlternativesEl.innerHTML = "";
 
+  // Light throttling: smooth out bursts (rapid boundary toggling, the background
+  // recalc loop, and manual retries all independently calling computeRoute) rather
+  // than firing a fresh batch of OSRM requests with no minimum spacing between them.
+  const sinceLastBatch = Date.now() - lastOsrmBatchAt;
+  if (lastOsrmBatchAt !== 0 && sinceLastBatch < OSRM_BATCH_MIN_INTERVAL_MS) {
+    await new Promise((resolve) => setTimeout(resolve, OSRM_BATCH_MIN_INTERVAL_MS - sinceLastBatch));
+    if (requestId !== routeRequestId) return; // superseded while debounced
+  }
+  lastOsrmBatchAt = Date.now();
+
   const settled = await Promise.allSettled(
     nearest.map((crossing) =>
       fetch(
         `https://router.project-osrm.org/route/v1/driving/${lastPoint[0]},${lastPoint[1]};${crossing.lon},${crossing.lat}?overview=full&geometries=geojson`
       )
         .then((response) => {
+          if (response.status === 429) throw new Error("rate-limited");
           const cachedAt = response.headers.get("X-Cached-At");
           return response.json().then((data) => ({ data, cachedAt }));
         })
@@ -186,12 +202,20 @@ async function computeRoute(type) {
     .sort((a, b) => a.duration - b.duration);
 
   if (!routes.length) {
+    // Prefer showing a cached last-known-good estimate (honestly timestamped) over a
+    // bare "try again" message when one's available — the user needs a number to
+    // decide whether to leave, not just to be told the service is busy.
     if (lastFastestDurationSeconds !== null) {
       const minutes = Math.round(lastFastestDurationSeconds / 60);
       const asOf = lastGoodResultAt.toLocaleTimeString();
       routePrimaryEl.textContent = `Fastest route back: ${lastFastestCrossingName}, about ${minutes} minutes (as of ${asOf})`;
     } else {
-      routePrimaryEl.textContent = "Couldn't calculate a route right now.";
+      const rateLimited = settled.some(
+        (result) => result.status === "rejected" && result.reason && result.reason.message === "rate-limited"
+      );
+      routePrimaryEl.textContent = rateLimited
+        ? "Routing service is busy right now — try again in a moment."
+        : "Couldn't calculate a route right now.";
     }
     routeAlternativesEl.innerHTML = "";
     return;
@@ -269,10 +293,20 @@ function tickAlarm() {
     return;
   }
 
-  if (!wakeLock) requestWakeLock();
-
   const bufferMinutes = Number(deadlineBufferInput.value);
   const effectiveDeadline = getEffectiveDeadline(deadlineTimeInput.value, bufferMinutes);
+  if (!deadlineTimeInput.value || Number.isNaN(effectiveDeadline.getTime())) {
+    alarmBannerEl.hidden = false;
+    alarmBannerEl.classList.remove("state-green", "state-amber", "state-red");
+    alarmMessageEl.textContent = "Set an arrival time to see your countdown.";
+    alarmCountdownEl.textContent = "";
+    alarmStaleNoticeEl.hidden = true;
+    releaseWakeLock();
+    return;
+  }
+
+  if (!wakeLock) requestWakeLock();
+
   const result = computeAlarmState(Date.now(), effectiveDeadline.getTime(), lastFastestDurationSeconds);
   if (!result) {
     alarmBannerEl.hidden = true;
@@ -459,6 +493,19 @@ addressForm.addEventListener("submit", async (event) => {
   event.preventDefault();
   const query = addressInput.value.trim();
   if (!query) return;
+  const normalizedQuery = query.toLowerCase();
+
+  const requestId = ++geocodeRequestId;
+
+  // Client-side cache of results already fetched this session — avoids a network
+  // call entirely for a repeated/duplicate query, distinct from the service
+  // worker's offline-fallback cache which only kicks in on network failure.
+  const cached = geocodeCache.get(normalizedQuery);
+  if (cached) {
+    setPoint(cached.lon, cached.lat);
+    locationMessageEl.textContent = `Showing a cached search result from ${cached.cachedAt.toLocaleTimeString()}.`;
+    return;
+  }
 
   locationMessageEl.textContent = "Searching...";
 
@@ -477,36 +524,49 @@ addressForm.addEventListener("submit", async (event) => {
     const response = await fetch(url);
     const cachedAt = response.headers.get("X-Cached-At");
     const results = await response.json();
+    if (requestId !== geocodeRequestId) return; // superseded by a newer search
     if (!results.length) {
       locationMessageEl.textContent = "No results found.";
       return;
     }
     const { lat, lon } = results[0];
-    setPoint(parseFloat(lon), parseFloat(lat));
-    // A cachedAt header means this is a stale SW-cache fallback, not a live geocode —
-    // say so rather than silently presenting it as current.
-    locationMessageEl.textContent = cachedAt
-      ? `Showing a cached search result from ${new Date(cachedAt).toLocaleTimeString()} (offline).`
-      : "";
+    const parsedLat = parseFloat(lat);
+    const parsedLon = parseFloat(lon);
+    setPoint(parsedLon, parsedLat);
+    if (cachedAt) {
+      // A cachedAt header means this is a stale SW-cache fallback, not a live geocode —
+      // say so rather than silently presenting it as current. Not stored in the
+      // client-side cache, since it's already a fallback result, not a fresh one.
+      locationMessageEl.textContent = `Showing a cached search result from ${new Date(cachedAt).toLocaleTimeString()} (offline).`;
+    } else {
+      geocodeCache.set(normalizedQuery, { lat: parsedLat, lon: parsedLon, cachedAt: new Date() });
+      locationMessageEl.textContent = "";
+    }
   } catch (err) {
+    if (requestId !== geocodeRequestId) return; // superseded by a newer search
     locationMessageEl.textContent = "Something went wrong searching for that address.";
   }
 });
 
 async function loadBoundaries() {
-  const [ceremonial, administrative, crossingsData] = await Promise.all([
-    fetch(BOUNDARY_URLS.ceremonial).then((r) => r.json()),
-    fetch(BOUNDARY_URLS.administrative).then((r) => r.json()),
-    fetch(CROSSINGS_URL).then((r) => r.json()),
-  ]);
-  boundaryData.ceremonial = ceremonial;
-  boundaryData.administrative = administrative;
-  crossings = crossingsData;
+  try {
+    const [ceremonial, administrative, crossingsData] = await Promise.all([
+      fetch(BOUNDARY_URLS.ceremonial).then((r) => r.json()),
+      fetch(BOUNDARY_URLS.administrative).then((r) => r.json()),
+      fetch(CROSSINGS_URL).then((r) => r.json()),
+    ]);
+    boundaryData.ceremonial = ceremonial;
+    boundaryData.administrative = administrative;
+    crossings = crossingsData;
 
-  const type = getBoundaryType();
-  boundarySelect.value = type;
-  drawBoundary(type);
-  updateStatusMessage(type);
+    const type = getBoundaryType();
+    boundarySelect.value = type;
+    drawBoundary(type);
+    updateStatusMessage(type);
+  } catch (err) {
+    appErrorEl.textContent = "Couldn't load boundary data — check your connection and reload.";
+    appErrorEl.hidden = false;
+  }
 }
 
 initDeadlineInputs();

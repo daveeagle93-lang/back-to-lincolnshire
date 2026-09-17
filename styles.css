@@ -228,6 +228,29 @@ button:hover {
   text-align: center;
 }
 
+.intro {
+  margin: 0 0 0.75rem;
+  font-size: 1rem;
+  color: #444;
+  text-align: center;
+}
+
+.app-error {
+  margin: 0 0 0.75rem;
+  padding: 0.75rem 1rem;
+  background: #fdeaea;
+  color: #a33;
+  border-radius: 8px;
+  text-align: center;
+}
+
+.route-caveat {
+  margin: 0.5rem 0 0;
+  font-size: 0.8rem;
+  color: #666;
+  text-align: center;
+}
+
 .visually-hidden {
   position: absolute;
   width: 1px;

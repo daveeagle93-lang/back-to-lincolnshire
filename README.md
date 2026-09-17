@@ -48,7 +48,12 @@ so use `localhost` (not `file://`) and a hard refresh when testing changes.
   caps requests at **1 request/second**, requires a valid
   `User-Agent`/`Referer` identifying the app, and prohibits auto-complete-style
   bulk querying. This app debounces input and caches results client- and
-  server-side to stay well within that limit.
+  server-side to stay well within that limit. Until the Stage 6 proxy exists,
+  the browser identifies itself to Nominatim via the automatically-sent
+  `Referer` header only (per Nominatim's policy, this is an accepted
+  alternative to a custom `User-Agent`, which client-side JavaScript cannot
+  set) — a dedicated contact address will be added as a proper `User-Agent`
+  header in the Stage 6 Pages Function.
 - **[OSRM demo server](http://project-osrm.org/)** — computes driving routes
   and durations to candidate border crossings. The public demo server is for
   light, non-commercial use only and has no documented hard rate limit, but
