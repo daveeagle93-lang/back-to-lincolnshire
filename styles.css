@@ -12,6 +12,30 @@ body {
   font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   color: #1a1a1a;
   background: #fafafa;
+  transition: background-color 0.3s ease;
+}
+
+/* Whole-page carrier for the alarm state (see tickAlarm's setPageState in app.js).
+   Colours are pale tints, not full-strength, so the map/cards/buttons — each on
+   their own opaque background — stay crisp rather than washed out; verified
+   against the WCAG AA 4.5:1 threshold for every text colour that sits directly on
+   the page background (no card of its own): #1a1a1a, #444, #666, #a33. */
+body.state-green {
+  background: #d9f0da;
+}
+
+body.state-amber {
+  background: #ffe9c2;
+}
+
+body.state-red {
+  /* Desaturated (dusty terracotta, not pure #f00) — a fully saturated red across
+     the whole viewport is a known OLED "vibration" discomfort issue. */
+  background: #f2e0de;
+}
+
+body.state-passed {
+  background: #ececec;
 }
 
 .app-header {
@@ -149,11 +173,37 @@ button:hover {
 
 .deadline-controls {
   display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: 1rem;
   margin-top: 1rem;
   font-size: 0.9rem;
   color: #444;
+}
+
+.deadline-presets,
+.buffer-control {
+  flex: 1 1 calc(50% - 0.5rem);
+  min-width: 0;
+}
+
+.buffer-control {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+/* Narrow phones (e.g. iPhone SE-width and below): stack full width so both
+   controls stay comfortably tappable rather than cramped side by side. */
+@media (max-width: 380px) {
+  .deadline-controls {
+    flex-direction: column;
+  }
+
+  .deadline-presets,
+  .buffer-control {
+    flex-basis: 100%;
+  }
 }
 
 .deadline-controls input {
@@ -208,27 +258,24 @@ button:hover {
 .alarm-banner {
   margin-top: 1rem;
   padding: 0.75rem 1rem;
-  border-radius: 8px;
   text-align: center;
 }
 
+/* No background here any more — the state colour now lives on body (see
+   body.state-* above). These set only the message/countdown text colour. */
 .alarm-banner.state-green {
-  background: #e6f4ea;
   color: #1a5d1a;
 }
 
 .alarm-banner.state-amber {
-  background: #fff4e0;
   color: #8a5a00;
 }
 
 .alarm-banner.state-red {
-  background: #fdeaea;
   color: #a33;
 }
 
 .alarm-banner.state-passed {
-  background: #f0f0f0;
   color: #444;
 }
 

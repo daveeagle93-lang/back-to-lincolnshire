@@ -44,6 +44,17 @@ function main() {
   check("amber case state", amberResult.state === "amber", `got ${amberResult.state}`);
   check("amber case margin", amberResult.marginSeconds === 300, `got ${amberResult.marginSeconds}`);
 
+  // 3b. Amber threshold is 15 minutes (900s), not the old 10 (600s): a margin of
+  // exactly 900s is amber, 901s is green.
+  check(
+    "amber threshold: margin 900s -> amber",
+    computeAlarmState(0, 900 * 1000, 0).state === "amber"
+  );
+  check(
+    "amber threshold: margin 901s -> green",
+    computeAlarmState(0, 901 * 1000, 0).state === "green"
+  );
+
   // 4. Red case: duration 55 minutes -> arrival 14:55, margin to 14:50 = -300s.
   const redResult = computeAlarmState(now.getTime(), effectiveDeadline.getTime(), 55 * 60);
   check("red case state", redResult.state === "red", `got ${redResult.state}`);

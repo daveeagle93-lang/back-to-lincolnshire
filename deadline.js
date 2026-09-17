@@ -18,7 +18,7 @@ export function computeAlarmState(nowMs, effectiveDeadlineMs, fastestDurationSec
   let state;
   if (marginSeconds < 0) {
     state = "red";
-  } else if (marginSeconds <= 600) {
+  } else if (marginSeconds <= 900) {
     state = "amber";
   } else {
     state = "green";
