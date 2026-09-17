@@ -37,6 +37,12 @@ const installBtnEl = document.getElementById("install-btn");
 const iosInstallHintEl = document.getElementById("ios-install-hint");
 const offlineBannerEl = document.getElementById("offline-banner");
 const appErrorEl = document.getElementById("app-error");
+const shareNativeBtn = document.getElementById("share-native-btn");
+const shareWhatsappBtn = document.getElementById("share-whatsapp-btn");
+const shareXBtn = document.getElementById("share-x-btn");
+const shareFacebookBtn = document.getElementById("share-facebook-btn");
+const shareCopyBtn = document.getElementById("share-copy-btn");
+const shareStatusEl = document.getElementById("share-status");
 
 // Map, centred on Lincolnshire by default.
 const map = L.map("map").setView([53.1, -0.3], 8);
@@ -608,6 +614,53 @@ installBtnEl.addEventListener("click", async () => {
   await deferredInstallPrompt.userChoice;
   deferredInstallPrompt = null;
   installBtnEl.hidden = true;
+});
+
+const SHARE_MESSAGE = "Hey, fellow Yellow Belly — found this useful tool, you might like it too.";
+
+function getShareUrl() {
+  return location.href;
+}
+
+function showShareStatus(text) {
+  shareStatusEl.textContent = text;
+  setTimeout(() => {
+    if (shareStatusEl.textContent === text) shareStatusEl.textContent = "";
+  }, 3000);
+}
+
+if (navigator.share) shareNativeBtn.hidden = false;
+
+shareNativeBtn.addEventListener("click", async () => {
+  try {
+    await navigator.share({ title: document.title, text: SHARE_MESSAGE, url: getShareUrl() });
+  } catch (err) {
+    // AbortError when the user dismisses the share sheet; not an error worth surfacing.
+  }
+});
+
+shareWhatsappBtn.addEventListener("click", () => {
+  const text = `${SHARE_MESSAGE} ${getShareUrl()}`;
+  window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, "_blank", "noopener");
+});
+
+shareXBtn.addEventListener("click", () => {
+  const params = new URLSearchParams({ text: SHARE_MESSAGE, url: getShareUrl() });
+  window.open(`https://twitter.com/intent/tweet?${params}`, "_blank", "noopener");
+});
+
+shareFacebookBtn.addEventListener("click", () => {
+  const params = new URLSearchParams({ u: getShareUrl() });
+  window.open(`https://www.facebook.com/sharer/sharer.php?${params}`, "_blank", "noopener");
+});
+
+shareCopyBtn.addEventListener("click", async () => {
+  try {
+    await navigator.clipboard.writeText(getShareUrl());
+    showShareStatus("Link copied");
+  } catch (err) {
+    showShareStatus("Couldn't copy link");
+  }
 });
 
 // Moved from an inline <script> in index.html so the CSP's script-src can

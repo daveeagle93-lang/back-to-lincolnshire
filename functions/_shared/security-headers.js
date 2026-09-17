@@ -4,6 +4,11 @@
 // functions/_middleware.js instead. See docs/cloudflare-dashboard-setup.md
 // and README.md for background.
 //
+// The CSP below is duplicated in ../../_headers for static asset responses.
+// There's no build step in this project to generate one from the other, so
+// keep the two in sync by hand when either changes — see README.md's
+// "Security headers" section.
+//
 // CSP notes:
 // - script-src/style-src allow https://unpkg.com: Leaflet's JS/CSS are
 //   loaded from there (index.html, sw.js APP_SHELL_URLS).

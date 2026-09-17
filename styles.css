@@ -251,6 +251,49 @@ button:hover {
   text-align: center;
 }
 
+.share-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+}
+
+.share-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  min-height: 40px;
+  padding: 0;
+  border: 1px solid #ddd;
+  border-radius: 50%;
+  background: transparent;
+  color: #666;
+}
+
+.share-btn:hover {
+  background: #f0f0f0;
+  color: #1a5d1a;
+}
+
+.share-btn svg {
+  width: 18px;
+  height: 18px;
+  fill: currentColor;
+}
+
+.share-status {
+  flex-basis: 100%;
+  margin: 0.25rem 0 0;
+  font-size: 0.8rem;
+  color: #1a5d1a;
+  text-align: center;
+  min-height: 1rem;
+}
+
 .visually-hidden {
   position: absolute;
   width: 1px;
