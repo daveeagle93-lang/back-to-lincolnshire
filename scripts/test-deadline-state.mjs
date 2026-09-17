@@ -8,6 +8,9 @@ import {
   shouldFireAlarm,
   getRecalcIntervalMs,
   hasMovedSignificantly,
+  hasDeadlinePassed,
+  getUkDateParts,
+  getSunsetUtc,
 } from "../deadline.js";
 
 let failures = 0;
@@ -100,6 +103,53 @@ function main() {
     "hasMovedSignificantly: null lastPoint is true",
     hasMovedSignificantly(null, pointA) === true
   );
+
+  // 8. hasDeadlinePassed — the winter edge case: a midwinter "17:00" preset can
+  // already be behind "now" on load (unrelated to sunset; just an ordinary passed clock time).
+  const dec21_1700 = new Date("2026-12-21T17:00:00").getTime();
+  check(
+    "hasDeadlinePassed: 17:00 preset, now 17:30 -> true",
+    hasDeadlinePassed(dec21_1700, new Date("2026-12-21T17:30:00").getTime()) === true
+  );
+  check(
+    "hasDeadlinePassed: 17:00 preset, now 16:30 -> false",
+    hasDeadlinePassed(dec21_1700, new Date("2026-12-21T16:30:00").getTime()) === false
+  );
+
+  // 9. getUkDateParts: BST/GMT-correct calendar date, independent of device timezone
+  // (this test's `now` values are UTC instants; the assertion is against UK civil date).
+  check(
+    "getUkDateParts: 2026-06-15T23:30:00Z is already 2026-06-16 in BST (UTC+1)",
+    JSON.stringify(getUkDateParts(new Date("2026-06-15T23:30:00Z"))) ===
+      JSON.stringify({ year: 2026, month: 6, day: 16 })
+  );
+  check(
+    "getUkDateParts: 2026-01-15T23:30:00Z is still 2026-01-15 in GMT (UTC+0)",
+    JSON.stringify(getUkDateParts(new Date("2026-01-15T23:30:00Z"))) ===
+      JSON.stringify({ year: 2026, month: 1, day: 15 })
+  );
+
+  // 10. getSunsetUtc, verified against the US Naval Observatory's official sun data
+  // for Lincoln (53.2307 N, 0.5406 W) — see deadline.js's sunset section comment.
+  // USNO times are minute-rounded, so 120s tolerance covers their rounding plus this
+  // algorithm's own (~30s, empirically) divergence from USNO's fuller model.
+  const LINCOLN_LAT = 53.2307;
+  const LINCOLN_LON = -0.5406;
+  const sunsetCases = [
+    { label: "summer solstice 2026-06-21 (BST)", now: new Date("2026-06-21T12:00:00Z"), usnoUtc: "2026-06-21T20:33:00Z" },
+    { label: "winter solstice 2026-12-21 (GMT)", now: new Date("2026-12-21T12:00:00Z"), usnoUtc: "2026-12-21T15:46:00Z" },
+    { label: "near equinox 2026-09-17 (BST)", now: new Date("2026-09-17T12:00:00Z"), usnoUtc: "2026-09-17T18:13:00Z" },
+    { label: "spring equinox 2026-03-20 (GMT)", now: new Date("2026-03-20T12:00:00Z"), usnoUtc: "2026-03-20T18:15:00Z" },
+  ];
+  for (const c of sunsetCases) {
+    const computed = getSunsetUtc(LINCOLN_LAT, LINCOLN_LON, c.now);
+    const diffSeconds = Math.abs(computed.getTime() - new Date(c.usnoUtc).getTime()) / 1000;
+    check(
+      `getSunsetUtc matches USNO reference for ${c.label} (within 120s)`,
+      diffSeconds <= 120,
+      `computed ${computed.toISOString()}, USNO ~${c.usnoUtc}, diff ${diffSeconds.toFixed(1)}s`
+    );
+  }
 
   if (failures > 0) {
     console.error(`\n${failures} check(s) failed.`);

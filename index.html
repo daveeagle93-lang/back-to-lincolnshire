@@ -92,8 +92,16 @@
     </div>
 
     <div class="deadline-controls">
-      <label for="deadline-time">Arrival deadline</label>
-      <input id="deadline-time" type="time" value="15:00" />
+      <fieldset class="deadline-presets">
+        <legend>Arrival deadline</legend>
+        <div class="preset-buttons" role="group" aria-label="Arrival deadline">
+          <button type="button" class="preset-btn" data-preset="12:00">12:00</button>
+          <button type="button" class="preset-btn" data-preset="15:00">15:00</button>
+          <button type="button" class="preset-btn" data-preset="17:00">17:00</button>
+          <button type="button" class="preset-btn" data-preset="sunset">Sunset</button>
+        </div>
+        <p id="sunset-status" class="sunset-status"></p>
+      </fieldset>
       <label for="deadline-buffer">Buffer (minutes early)</label>
       <input id="deadline-buffer" type="number" min="0" max="60" step="1" value="10" />
     </div>

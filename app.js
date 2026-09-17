@@ -5,7 +5,17 @@ import {
   shouldFireAlarm,
   getRecalcIntervalMs,
   hasMovedSignificantly,
+  hasDeadlinePassed,
+  getSunsetUtc,
 } from "./deadline.js";
+
+const DEADLINE_PRESETS = ["12:00", "15:00", "17:00", "sunset"];
+const UK_TIME_FORMATTER = new Intl.DateTimeFormat("en-GB", {
+  timeZone: "Europe/London",
+  hour: "2-digit",
+  minute: "2-digit",
+  hour12: false,
+});
 
 const BOUNDARY_URLS = {
   ceremonial: "data/boundaries/lincolnshire-ceremonial.geojson",
@@ -27,7 +37,8 @@ const boundarySelect = document.getElementById("boundary-select");
 const routeResultEl = document.getElementById("route-result");
 const routePrimaryEl = document.getElementById("route-primary");
 const routeAlternativesEl = document.getElementById("route-alternatives");
-const deadlineTimeInput = document.getElementById("deadline-time");
+const presetButtons = Array.from(document.querySelectorAll(".preset-btn"));
+const sunsetStatusEl = document.getElementById("sunset-status");
 const deadlineBufferInput = document.getElementById("deadline-buffer");
 const alarmBannerEl = document.getElementById("alarm-banner");
 const alarmMessageEl = document.getElementById("alarm-message");
@@ -62,6 +73,8 @@ let lastFastestCrossingName = null;
 let lastGoodResultAt = null; // Date
 let previousAlarmState = null;
 let lastRecalcPoint = null; // [lon, lat] used for the most recent successful route computation
+let selectedPreset = "15:00";
+let sunsetInfo = null; // { deadlineMs, crossingName, originPoint } — held steady per-session, see maybeUpdateSunset
 let audioCtx = null;
 let wakeLock = null;
 let deferredInstallPrompt = null;
@@ -231,6 +244,7 @@ async function computeRoute(type) {
   const minutes = Math.round(fastest.duration / 60);
   lastFastestDurationSeconds = fastest.duration;
   lastFastestCrossingName = fastest.crossing.name;
+  maybeUpdateSunset(fastest.crossing);
   if (fastest.cachedAt) {
     // Served from the service worker's offline cache fallback, not a live network
     // response — show it as such rather than presenting it as fresh.
@@ -274,10 +288,54 @@ function setPoint(lon, lat) {
 }
 
 function initDeadlineInputs() {
-  const storedTime = localStorage.getItem(DEADLINE_TIME_STORAGE_KEY);
-  if (storedTime) deadlineTimeInput.value = storedTime;
+  const storedPreset = localStorage.getItem(DEADLINE_TIME_STORAGE_KEY);
+  if (storedPreset && DEADLINE_PRESETS.includes(storedPreset)) selectedPreset = storedPreset;
   const storedBuffer = localStorage.getItem(BUFFER_MINUTES_STORAGE_KEY);
   if (storedBuffer !== null) deadlineBufferInput.value = storedBuffer;
+  renderPresetButtons();
+}
+
+function renderPresetButtons() {
+  presetButtons.forEach((btn) => {
+    const isSelected = btn.dataset.preset === selectedPreset;
+    btn.classList.toggle("selected", isSelected);
+    btn.setAttribute("aria-pressed", String(isSelected));
+  });
+  updateSunsetStatusText();
+}
+
+function formatUkTime(ms) {
+  return UK_TIME_FORMATTER.format(ms);
+}
+
+// The raw (unbuffered) deadline instant for `preset`, or null if it isn't resolvable
+// yet (the "sunset" preset before any route has been computed).
+function getRawDeadlineMs(preset) {
+  if (preset === "sunset") return sunsetInfo ? sunsetInfo.deadlineMs : null;
+  return getEffectiveDeadline(preset, 0).getTime();
+}
+
+function formatPresetLabel(preset, rawDeadlineMs) {
+  return preset === "sunset" ? `Sunset (${formatUkTime(rawDeadlineMs)})` : preset;
+}
+
+// Computes sunset for the crossing the fastest route currently heads to, once routing
+// has run. Held steady for the session and only recomputed if the person's search
+// origin has moved significantly since the point it was last computed from — a new
+// fastest crossing alone (ties, minor route changes) doesn't trigger a recompute.
+function maybeUpdateSunset(crossing) {
+  if (sunsetInfo && !hasMovedSignificantly(sunsetInfo.originPoint, lastPoint)) return;
+  const sunsetDate = getSunsetUtc(crossing.lat, crossing.lon);
+  if (!sunsetDate) return; // defensive; sunset is always reachable at UK latitudes
+  sunsetInfo = { deadlineMs: sunsetDate.getTime(), crossingName: crossing.name, originPoint: lastPoint };
+  updateSunsetStatusText();
+  if (selectedPreset === "sunset") tickAlarm();
+}
+
+function updateSunsetStatusText() {
+  sunsetStatusEl.textContent = sunsetInfo
+    ? `Sunset: ${formatUkTime(sunsetInfo.deadlineMs)} (based on ${sunsetInfo.crossingName})`
+    : "Sunset: pending — run a search to calculate it.";
 }
 
 function formatCountdown(msRemaining) {
@@ -299,12 +357,22 @@ function tickAlarm() {
     return;
   }
 
-  const bufferMinutes = Number(deadlineBufferInput.value);
-  const effectiveDeadline = getEffectiveDeadline(deadlineTimeInput.value, bufferMinutes);
-  if (!deadlineTimeInput.value || Number.isNaN(effectiveDeadline.getTime())) {
+  const rawDeadlineMs = getRawDeadlineMs(selectedPreset);
+  if (rawDeadlineMs === null) {
+    alarmBannerEl.hidden = false;
+    alarmBannerEl.classList.remove("state-green", "state-amber", "state-red", "state-passed");
+    alarmMessageEl.textContent = "Sunset time pending — run a search to calculate it.";
+    alarmCountdownEl.textContent = "";
+    alarmStaleNoticeEl.hidden = true;
+    releaseWakeLock();
+    return;
+  }
+
+  if (hasDeadlinePassed(rawDeadlineMs, Date.now())) {
     alarmBannerEl.hidden = false;
     alarmBannerEl.classList.remove("state-green", "state-amber", "state-red");
-    alarmMessageEl.textContent = "Set an arrival time to see your countdown.";
+    alarmBannerEl.classList.add("state-passed");
+    alarmMessageEl.textContent = `${formatPresetLabel(selectedPreset, rawDeadlineMs)} has already passed today.`;
     alarmCountdownEl.textContent = "";
     alarmStaleNoticeEl.hidden = true;
     releaseWakeLock();
@@ -313,7 +381,9 @@ function tickAlarm() {
 
   if (!wakeLock) requestWakeLock();
 
-  const result = computeAlarmState(Date.now(), effectiveDeadline.getTime(), lastFastestDurationSeconds);
+  const bufferMinutes = Number(deadlineBufferInput.value);
+  const effectiveDeadlineMs = rawDeadlineMs - bufferMinutes * 60000;
+  const result = computeAlarmState(Date.now(), effectiveDeadlineMs, lastFastestDurationSeconds);
   if (!result) {
     alarmBannerEl.hidden = true;
     releaseWakeLock();
@@ -321,7 +391,7 @@ function tickAlarm() {
   }
 
   alarmBannerEl.hidden = false;
-  alarmBannerEl.classList.remove("state-green", "state-amber", "state-red");
+  alarmBannerEl.classList.remove("state-green", "state-amber", "state-red", "state-passed");
   alarmBannerEl.classList.add(`state-${result.state}`);
 
   const minutesSpare = Math.round(result.marginSeconds / 60);
@@ -333,7 +403,7 @@ function tickAlarm() {
     alarmMessageEl.textContent = "You won't make it — leave now!";
   }
 
-  alarmCountdownEl.textContent = formatCountdown(effectiveDeadline.getTime() - Date.now());
+  alarmCountdownEl.textContent = formatCountdown(effectiveDeadlineMs - Date.now());
 
   const staleMs = lastGoodResultAt ? Date.now() - lastGoodResultAt.getTime() : 0;
   if (lastGoodResultAt && staleMs > 3 * 60 * 1000) {
@@ -430,17 +500,21 @@ async function attemptRecalc(type) {
 function scheduleRecalc() {
   const type = boundarySelect.value;
   let delay = 120000; // fallback if we don't yet have a deadline-based figure
-  if (lastFastestDurationSeconds !== null) {
+  const rawDeadlineMs = lastFastestDurationSeconds !== null ? getRawDeadlineMs(selectedPreset) : null;
+  if (rawDeadlineMs !== null) {
     const bufferMinutes = Number(deadlineBufferInput.value);
-    const effectiveDeadline = getEffectiveDeadline(deadlineTimeInput.value, bufferMinutes);
-    delay = getRecalcIntervalMs(effectiveDeadline.getTime() - Date.now());
+    delay = getRecalcIntervalMs(rawDeadlineMs - bufferMinutes * 60000 - Date.now());
   }
   setTimeout(() => attemptRecalc(type).finally(scheduleRecalc), delay);
 }
 
-deadlineTimeInput.addEventListener("input", () => {
-  localStorage.setItem(DEADLINE_TIME_STORAGE_KEY, deadlineTimeInput.value);
-  tickAlarm();
+presetButtons.forEach((btn) => {
+  btn.addEventListener("click", () => {
+    selectedPreset = btn.dataset.preset;
+    localStorage.setItem(DEADLINE_TIME_STORAGE_KEY, selectedPreset);
+    renderPresetButtons();
+    tickAlarm();
+  });
 });
 
 deadlineBufferInput.addEventListener("input", () => {
