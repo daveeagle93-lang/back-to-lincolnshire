@@ -6,6 +6,7 @@
   { "id": "a46", "name": "A46 near Newark", "ref": "A46", "lat": 53.1374, "lon": -0.7154, "boundaries": ["ceremonial", "administrative"] },
   { "id": "a57", "name": "A57 at Dunham Bridge", "ref": "A57", "lat": 53.26082, "lon": -0.77305, "boundaries": ["ceremonial", "administrative"] },
   { "id": "a15-south", "name": "A15 near Market Deeping", "ref": "A15", "lat": 52.67367, "lon": -0.32883, "boundaries": ["ceremonial", "administrative"] },
+  { "id": "a6121", "name": "A6121 near Stamford", "ref": "A6121", "lat": 52.64696, "lon": -0.50396, "boundaries": ["ceremonial", "administrative"] },
   { "id": "humber-bridge", "name": "Humber Bridge", "ref": "A15", "lat": 53.69692, "lon": -0.44915, "boundaries": ["ceremonial"] },
   { "id": "a18", "name": "A18 near Grimsby", "ref": "A18", "lat": 53.58007, "lon": -0.31944, "boundaries": ["administrative"] },
   { "id": "a15-north", "name": "A15 near Broughton", "ref": "A15", "lat": 53.46072, "lon": -0.55171, "boundaries": ["administrative"] },
