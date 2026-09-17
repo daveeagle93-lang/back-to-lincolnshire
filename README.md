@@ -48,21 +48,33 @@ so use `localhost` (not `file://`) and a hard refresh when testing changes.
   caps requests at **1 request/second**, requires a valid
   `User-Agent`/`Referer` identifying the app, and prohibits auto-complete-style
   bulk querying. This app debounces input and caches results client- and
-  server-side to stay well within that limit. Until the Stage 6 proxy exists,
-  the browser identifies itself to Nominatim via the automatically-sent
-  `Referer` header only (per Nominatim's policy, this is an accepted
-  alternative to a custom `User-Agent`, which client-side JavaScript cannot
-  set) — a dedicated contact address will be added as a proper `User-Agent`
-  header in the Stage 6 Pages Function.
+  server-side to stay well within that limit. The browser no longer calls
+  Nominatim directly — requests go through the same-origin `/api/geocode`
+  Pages Function, which sets a proper `User-Agent` identifying the app plus a
+  contact address (from the `NOMINATIM_CONTACT` environment variable — see
+  `docs/cloudflare-dashboard-setup.md`). Before this stage, the browser
+  identified itself via the automatically-sent `Referer` header only (an
+  accepted alternative per Nominatim's policy, but weaker than a proper
+  `User-Agent`); that interim approach is superseded now that requests are
+  proxied.
 - **[OSRM demo server](http://project-osrm.org/)** — computes driving routes
   and durations to candidate border crossings. The public demo server is for
   light, non-commercial use only and has no documented hard rate limit, but
   is throttled and can reject heavy traffic without notice. This app limits
   the number of candidate crossings routed per request and caches results.
+  The browser no longer calls OSRM directly — requests go through the
+  same-origin `/api/route` Pages Function.
 
-Both are proxied through a Cloudflare Pages Function (Stage 6) so the
-browser never calls them directly, and both are rate-limited per-IP and
-cached in Cloudflare KV to protect the upstream free services from abuse.
+Both are proxied through Cloudflare Pages Functions (`/api/geocode`,
+`/api/route`) so the browser never calls them directly, and both are
+rate-limited per-IP and cached in Cloudflare KV to protect the upstream free
+services from abuse. Per-IP rate limiting is backed by a Durable Object
+hosted in a separate Worker (`worker/rate-limiter/` — a second deployable
+component of this repo, alongside the Pages project); see
+`docs/cloudflare-dashboard-setup.md` for the manual dashboard steps needed to
+wire all of this up (Durable Object binding, KV namespace, environment
+variables, and outer-layer protections like WAF rate limiting rules and Bot
+Fight Mode).
 
 ## Deployment
 
@@ -81,9 +93,12 @@ To connect it:
    manages DNS automatically if the domain is already on Cloudflare).
 4. Every push to `main` triggers an automatic production deploy; other
    branches and PRs get preview deploys.
-5. From Stage 6 onward, set any required environment variables/bindings
-   (KV namespace for rate limiting and caching) in the Pages project's
-   **Settings → Functions** tab.
+5. Set the required environment variables and bindings (Durable Object, KV
+   namespace, `NOMINATIM_CONTACT`) in the Pages project's **Settings →
+   Bindings**/**Environment variables** tabs, and deploy the separate
+   `worker/rate-limiter/` Worker it depends on — see
+   [`docs/cloudflare-dashboard-setup.md`](docs/cloudflare-dashboard-setup.md)
+   for the full step-by-step.
 
 ## License
 

@@ -1,4 +1,4 @@
-const CACHE_VERSION = "v1";
+const CACHE_VERSION = "v2";
 const APP_SHELL_CACHE = `back-to-lincolnshire-shell-${CACHE_VERSION}`;
 const RUNTIME_CACHE = `back-to-lincolnshire-runtime-${CACHE_VERSION}`;
 
@@ -78,10 +78,7 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  if (
-    url.href.startsWith("https://router.project-osrm.org/") ||
-    url.href.startsWith("https://nominatim.openstreetmap.org/")
-  ) {
+  if (url.origin === self.location.origin && url.pathname.startsWith("/api/")) {
     event.respondWith(networkFirstWithAgeHeader(event.request));
     return;
   }

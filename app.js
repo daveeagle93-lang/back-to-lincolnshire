@@ -173,7 +173,7 @@ async function computeRoute(type) {
   const settled = await Promise.allSettled(
     nearest.map((crossing) =>
       fetch(
-        `https://router.project-osrm.org/route/v1/driving/${lastPoint[0]},${lastPoint[1]};${crossing.lon},${crossing.lat}?overview=full&geometries=geojson`
+        `/api/route?from=${lastPoint[0]},${lastPoint[1]}&to=${crossing.lon},${crossing.lat}`
       )
         .then((response) => {
           if (response.status === 429) throw new Error("rate-limited");
@@ -509,19 +509,18 @@ addressForm.addEventListener("submit", async (event) => {
 
   locationMessageEl.textContent = "Searching...";
 
-  // Nominatim usage policy (https://operations.osmfoundation.org/policies/nominatim/)
-  // requires a descriptive User-Agent or Referer identifying the application.
-  // Browsers automatically send Origin/Referer with fetch requests, but JS
-  // cannot override the User-Agent header, and attempting to set one from
-  // fetch() would be silently dropped or trigger a CORS preflight for no
-  // benefit. Proper server-side identification will be added when this call
-  // is proxied through a Cloudflare Pages Function in a later stage.
-  const url = `https://nominatim.openstreetmap.org/search?format=jsonv2&q=${encodeURIComponent(
-    query
-  )}&limit=1&countrycodes=gb`;
+  // Proxied through a same-origin Pages Function, which sets a proper
+  // Nominatim User-Agent/contact and applies rate limiting and caching
+  // server-side — the browser never talks to Nominatim directly.
+  const url = `/api/geocode?q=${encodeURIComponent(query)}`;
 
   try {
     const response = await fetch(url);
+    if (response.status === 429) {
+      if (requestId !== geocodeRequestId) return; // superseded by a newer search
+      locationMessageEl.textContent = "Search is busy right now — try again in a moment.";
+      return;
+    }
     const cachedAt = response.headers.get("X-Cached-At");
     const results = await response.json();
     if (requestId !== geocodeRequestId) return; // superseded by a newer search
@@ -610,3 +609,9 @@ installBtnEl.addEventListener("click", async () => {
   deferredInstallPrompt = null;
   installBtnEl.hidden = true;
 });
+
+// Moved from an inline <script> in index.html so the CSP's script-src can
+// omit 'unsafe-inline'.
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => navigator.serviceWorker.register("/sw.js"));
+}

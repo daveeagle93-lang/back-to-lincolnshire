@@ -1,0 +1,11 @@
+name = "back-to-lincolnshire-rate-limiter"
+main = "src/index.js"
+compatibility_date = "2024-09-23"
+
+[[durable_objects.bindings]]
+name = "RATE_LIMITER_DO"
+class_name = "RateLimiterDO"
+
+[[migrations]]
+tag = "v1"
+new_classes = ["RateLimiterDO"]
