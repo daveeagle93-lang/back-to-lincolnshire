@@ -62,7 +62,10 @@ export async function onRequestGet(context) {
 
   let response;
   try {
-    response = await fetch(osrmUrl);
+    // OSRM's public demo server 403s any request with no User-Agent header at
+    // all (confirmed directly against it) — Cloudflare's fetch() doesn't send
+    // a default one the way curl does, so this must be set explicitly.
+    response = await fetch(osrmUrl, { headers: { "User-Agent": "BackToLincolnshire/1.0" } });
   } catch (err) {
     console.error("OSRM fetch threw", err.message);
     return jsonError("Routing is temporarily unavailable", 502);
