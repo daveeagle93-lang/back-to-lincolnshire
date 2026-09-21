@@ -120,3 +120,86 @@ Live headers: `/favicon.ico` → `image/vnd.microsoft.icon`, `/favicon.svg` →
   installed in the session scratchpad only, not the repo: ICO frames and SVG renders are
   pixel-identical at 16/32/48.
 - This session's notes were left uncommitted (the user asked for four commits).
+
+---
+
+# Session 3 — HSTS and monitoring
+
+## What was accomplished
+
+1. **HSTS** (`2d7aec5`): `Strict-Transport-Security: max-age=86400` in both `_headers` and
+   `functions/_shared/security-headers.js`, no `includeSubDomains`/`preload`.
+   `docs/architecture.md` has a new "HSTS starts at one day" section (raise to `31536000`
+   after a few stable weeks; back out with `max-age=0`, not by removing the header). Live
+   ~11s after the push: a single `max-age=86400` on `/`, a 404, `/favicon.svg`,
+   `/api/geocode` and `/api/route`. There was no HSTS on live responses before, so no
+   dashboard-level HSTS setting to clash with.
+2. **GitHub Actions workflow** (`9d35459`, `.github/workflows/check-live.yml`): runs
+   `npm run check-live` after every push to main, after a 120s wait for the deploy. First
+   run `35647049563`: success, 23 PASS / 0 FAIL / 0 WARN from the runner (so Cloudflare
+   isn't blocking GitHub's IPs).
+3. **Daily check as a systemd user timer on tower-dev** (`97daca0`): `scripts/systemd/`
+   holds the service, failure service and timer, linked into `~/.config/systemd/user` with
+   `systemctl --user link` and enabled; `scripts/check-live-timer.sh` is the wrapper.
+   Runs 06:47 UTC daily (`Persistent=true`); next fire Tue 2026-09-22 06:47 UTC. README
+   documents install, status, logs and running it by hand.
+4. **Scheduled trigger removed from the workflow** (`6ecd64d`): the timer is the single
+   source of daily checks; the `if: github.event_name == 'push'` on the deploy wait went
+   with it. The run for that push (`35649307500`) passed.
+
+## Decisions and why
+
+- **Alerting reuses `/home/david/migration/backup/notify-failure.sh`**, via the house
+  pattern `X.service` → `OnFailure=X-failure.service` (see `open-seo-preflight-*`). The
+  ntfy topic/token live in `~/.secrets/ntfy/`, so nothing secret goes in this public repo.
+  The units hardcode `/home/david/...` paths and are tower-dev-specific by design.
+- **Alert contract is the exit code**: `check-live` exits 1 on any FAIL and 0 on warnings,
+  so a FAIL fails the unit (alert) and OSRM-down WARNs don't.
+- **The wrapper re-prints FAIL/WARN lines at the very end** because `notify-failure.sh`
+  quotes only the last 20 journal lines and a full run is ~28.
+- **The wrapper truncates lines with bash builtins, not `cut`.** Found by running under
+  systemd: lines written by a short-lived child (`cut`) were stored in the journal
+  *without* the unit, so `journalctl --user -u <unit>` (what `notify-failure.sh` runs)
+  returned none of them and the alert would have had no FAIL lines. Reproduced with
+  transient units (`systemd-run --user`); a trailing `sleep 1` and `LogExtraFields=` only
+  partly helped; builtins in the main shell gave all lines, 3 runs out of 3.
+- Timer is in UTC (host is `Etc/UTC`); lingering was already enabled (`Linger=yes`).
+
+## Verification (real runs on tower-dev)
+
+- Healthy run of the real unit: `Result=success`, 23 PASS lines visible via `-u`, failure
+  unit not triggered.
+- Forced failure: appended a marker to the CSP line of the working-tree `_headers`
+  (uncommitted; restored by a `trap`, then confirmed `git status`/`git diff` empty), started
+  the real service: exit 1, `OnFailure=` fired the failure unit once, ntfy accepted the POST
+  (message `n0qGUcKDNbsf`, priority 4, `rotating_light`), and the stored body contained the
+  `--- failures ---` block with the 3 FAIL lines inside the last 20.
+- Healthy re-run after the restore: success, no second alert (failure unit started exactly
+  once in the window).
+
+## Deferred / open
+
+- **Not confirmed on the phone**: I only saw ntfy's server accept the message; whether it
+  arrived on the user's device is theirs to confirm.
+- The timer's first *scheduled* fire (Tue 2026-09-22 06:47 UTC) hasn't happened yet; only
+  manual starts were exercised.
+- No dead-man's switch: if tower-dev or its user manager is down, nothing alerts.
+- CSP FAIL lines are cut at 240 chars, in the journal as well as the alert (the wrapper
+  truncates everything it prints), so the differing tail of the policy is never recorded;
+  the check label is. Re-run `npm run check-live` by hand for the full text.
+- With `Persistent=true`, a catch-up run right after a reboot could start before the network
+  is up and raise a false alert. I have not verified this.
+- Actions annotations: `checkout@v4`/`setup-node@v4` target Node 20 (deprecated, forced to
+  Node 24); `ubuntu-latest` moves to Ubuntu 26 from 2026-10-19. Both still work.
+
+## Gotchas
+
+- Back-to-back `check-live` runs from one IP trip our own per-IP rate limiter: `/api/route`
+  and `/api/geocode` return 429, which check-live correctly treats as a FAIL. Leave ~a minute
+  between manual runs.
+- The bash guardrail hook blocked `ls` of a path under `~/.claude` and a `curl … | sha256sum`
+  pipe (its `curl | sh` pattern matches "sh" in `sha256sum`); neither was bypassed —
+  download to a file first, and use the Read tool for `~/.claude`.
+- `graphify-sync.service` is currently in a failed state in the same user manager (its log
+  says stale repos: lmaw), which makes `systemctl --user is-system-running` report
+  `degraded`. Pre-existing and unrelated to this work.
