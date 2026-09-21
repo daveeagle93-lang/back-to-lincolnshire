@@ -6,6 +6,7 @@ import {
   getEffectiveDeadline,
   computeAlarmState,
   getAlarmMessage,
+  formatMinutes,
   shouldFireAlarm,
   getRecalcIntervalMs,
   hasMovedSignificantly,
@@ -104,6 +105,11 @@ function main() {
     getAlarmMessage("red", -300) === "You won't make it. Leave now.",
     `got ${getAlarmMessage("red", -300)}`
   );
+
+  // 3d. formatMinutes: singular "1 minute", plural otherwise (including 0).
+  check("formatMinutes(0) -> 0 minutes", formatMinutes(0) === "0 minutes", `got ${formatMinutes(0)}`);
+  check("formatMinutes(1) -> 1 minute", formatMinutes(1) === "1 minute", `got ${formatMinutes(1)}`);
+  check("formatMinutes(2) -> 2 minutes", formatMinutes(2) === "2 minutes", `got ${formatMinutes(2)}`);
 
   // 4. Red case: duration 55 minutes -> arrival 14:55, margin to 14:50 = -300s.
   const redResult = computeAlarmState(now.getTime(), effectiveDeadline.getTime(), 55 * 60);

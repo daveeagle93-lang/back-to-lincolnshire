@@ -3,6 +3,7 @@ import {
   getEffectiveDeadline,
   computeAlarmState,
   getAlarmMessage,
+  formatMinutes,
   shouldFireAlarm,
   getRecalcIntervalMs,
   hasMovedSignificantly,
@@ -301,7 +302,7 @@ async function computeRoute(type) {
     if (lastFastestDurationSeconds !== null) {
       const minutes = Math.round(lastFastestDurationSeconds / 60);
       const asOf = lastGoodResultAt.toLocaleTimeString();
-      routePrimaryEl.textContent = `Fastest route back: ${lastFastestCrossingName}, about ${minutes} minutes (as of ${asOf})`;
+      routePrimaryEl.textContent = `Fastest route back: ${lastFastestCrossingName}, about ${formatMinutes(minutes)} (as of ${asOf})`;
     } else {
       const rateLimited = settled.some(
         (result) => result.status === "rejected" && result.reason && result.reason.message === "rate-limited"
@@ -324,16 +325,16 @@ async function computeRoute(type) {
     // response — show it as such rather than presenting it as fresh.
     lastGoodResultAt = new Date(fastest.cachedAt);
     const asOf = lastGoodResultAt.toLocaleTimeString();
-    routePrimaryEl.textContent = `Fastest route back: ${fastest.crossing.name}, about ${minutes} minutes (as of ${asOf})`;
+    routePrimaryEl.textContent = `Fastest route back: ${fastest.crossing.name}, about ${formatMinutes(minutes)} (as of ${asOf})`;
   } else {
     lastGoodResultAt = new Date();
-    routePrimaryEl.textContent = `Fastest route back: ${fastest.crossing.name}, about ${minutes} minutes`;
+    routePrimaryEl.textContent = `Fastest route back: ${fastest.crossing.name}, about ${formatMinutes(minutes)}`;
   }
 
   routeAlternativesEl.innerHTML = "";
   routes.slice(1, 3).forEach((entry) => {
     const li = document.createElement("li");
-    li.textContent = `${entry.crossing.name} — about ${Math.round(entry.duration / 60)} minutes`;
+    li.textContent = `${entry.crossing.name} — about ${formatMinutes(Math.round(entry.duration / 60))}`;
     routeAlternativesEl.appendChild(li);
   });
 

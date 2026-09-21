@@ -26,12 +26,17 @@ export function computeAlarmState(nowMs, effectiveDeadlineMs, fastestDurationSec
   return { state, marginSeconds };
 }
 
+// Pure. Returns "1 minute" for 1 and "N minutes" otherwise (including "0 minutes").
+export function formatMinutes(n) {
+  return `${n} ${n === 1 ? "minute" : "minutes"}`;
+}
+
 // Pure. Returns the alarm banner message for a state ("green"|"amber"|"red") and margin.
 // Rounds the margin to whole minutes itself; singular "1 minute", and amber never says
 // "0 minutes" (a margin that rounds to 0 is "no time to spare").
 export function getAlarmMessage(state, marginSeconds) {
   const minutesSpare = Math.round(marginSeconds / 60);
-  const spare = `${minutesSpare} ${minutesSpare === 1 ? "minute" : "minutes"}`;
+  const spare = formatMinutes(minutesSpare);
   if (state === "green") {
     return `Put the kettle on — you've ${spare} to spare.`;
   }
