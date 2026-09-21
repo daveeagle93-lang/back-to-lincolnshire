@@ -676,7 +676,7 @@ addressForm.addEventListener("submit", async (event) => {
 
   try {
     const response = await fetch(url);
-    if (response.status === 429) {
+    if (!response.ok) {
       if (requestId !== geocodeRequestId) return; // superseded by a newer search
       locationMessageEl.textContent = "Search is having a busy spell — try again in a moment.";
       return;
