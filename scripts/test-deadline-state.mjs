@@ -5,6 +5,7 @@
 import {
   getEffectiveDeadline,
   computeAlarmState,
+  getAlarmMessage,
   shouldFireAlarm,
   getRecalcIntervalMs,
   hasMovedSignificantly,
@@ -53,6 +54,55 @@ function main() {
   check(
     "amber threshold: margin 901s -> green",
     computeAlarmState(0, 901 * 1000, 0).state === "green"
+  );
+
+  // 3c. getAlarmMessage: singular "1 minute", and amber never says "0 minutes"
+  // (a margin that rounds to 0 is "no time to spare"). Math.round(0.5) = 1, so 30s -> 1 minute.
+  const NO_TIME = "Cutting it fine — no time to spare. Get your coat.";
+  check(
+    "getAlarmMessage: green 0s -> 0 minutes",
+    getAlarmMessage("green", 0) === "Put the kettle on — you've 0 minutes to spare.",
+    `got ${getAlarmMessage("green", 0)}`
+  );
+  check(
+    "getAlarmMessage: green 60s -> 1 minute",
+    getAlarmMessage("green", 60) === "Put the kettle on — you've 1 minute to spare.",
+    `got ${getAlarmMessage("green", 60)}`
+  );
+  check(
+    "getAlarmMessage: green 120s -> 2 minutes",
+    getAlarmMessage("green", 120) === "Put the kettle on — you've 2 minutes to spare.",
+    `got ${getAlarmMessage("green", 120)}`
+  );
+  check(
+    "getAlarmMessage: amber 0s -> no time to spare",
+    getAlarmMessage("amber", 0) === NO_TIME,
+    `got ${getAlarmMessage("amber", 0)}`
+  );
+  check(
+    "getAlarmMessage: amber 29s (rounds to 0) -> no time to spare",
+    getAlarmMessage("amber", 29) === NO_TIME,
+    `got ${getAlarmMessage("amber", 29)}`
+  );
+  check(
+    "getAlarmMessage: amber 30s (rounds to 1) -> 1 minute",
+    getAlarmMessage("amber", 30) === "Cutting it fine — 1 minute to spare. Get your coat.",
+    `got ${getAlarmMessage("amber", 30)}`
+  );
+  check(
+    "getAlarmMessage: amber 60s -> 1 minute",
+    getAlarmMessage("amber", 60) === "Cutting it fine — 1 minute to spare. Get your coat.",
+    `got ${getAlarmMessage("amber", 60)}`
+  );
+  check(
+    "getAlarmMessage: amber 120s -> 2 minutes",
+    getAlarmMessage("amber", 120) === "Cutting it fine — 2 minutes to spare. Get your coat.",
+    `got ${getAlarmMessage("amber", 120)}`
+  );
+  check(
+    "getAlarmMessage: red -> unchanged",
+    getAlarmMessage("red", -300) === "You won't make it. Leave now.",
+    `got ${getAlarmMessage("red", -300)}`
   );
 
   // 4. Red case: duration 55 minutes -> arrival 14:55, margin to 14:50 = -300s.

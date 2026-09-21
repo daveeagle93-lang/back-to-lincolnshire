@@ -2,6 +2,7 @@ import { isInsideBoundary } from "./point-in-polygon.js";
 import {
   getEffectiveDeadline,
   computeAlarmState,
+  getAlarmMessage,
   shouldFireAlarm,
   getRecalcIntervalMs,
   hasMovedSignificantly,
@@ -476,14 +477,7 @@ function tickAlarm() {
   alarmBannerEl.classList.add(`state-${result.state}`);
   setPageState(result.state);
 
-  const minutesSpare = Math.round(result.marginSeconds / 60);
-  if (result.state === "green") {
-    alarmMessageEl.textContent = `Put the kettle on — you've ${minutesSpare} minutes to spare.`;
-  } else if (result.state === "amber") {
-    alarmMessageEl.textContent = `Cutting it fine — ${minutesSpare} minutes to spare. Get your coat.`;
-  } else {
-    alarmMessageEl.textContent = "You won't make it. Leave now.";
-  }
+  alarmMessageEl.textContent = getAlarmMessage(result.state, result.marginSeconds);
 
   alarmCountdownEl.textContent = formatCountdown(effectiveDeadlineMs - Date.now());
 

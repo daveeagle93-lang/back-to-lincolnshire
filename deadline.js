@@ -26,6 +26,23 @@ export function computeAlarmState(nowMs, effectiveDeadlineMs, fastestDurationSec
   return { state, marginSeconds };
 }
 
+// Pure. Returns the alarm banner message for a state ("green"|"amber"|"red") and margin.
+// Rounds the margin to whole minutes itself; singular "1 minute", and amber never says
+// "0 minutes" (a margin that rounds to 0 is "no time to spare").
+export function getAlarmMessage(state, marginSeconds) {
+  const minutesSpare = Math.round(marginSeconds / 60);
+  const spare = `${minutesSpare} ${minutesSpare === 1 ? "minute" : "minutes"}`;
+  if (state === "green") {
+    return `Put the kettle on — you've ${spare} to spare.`;
+  }
+  if (state === "amber") {
+    return minutesSpare === 0
+      ? "Cutting it fine — no time to spare. Get your coat."
+      : `Cutting it fine — ${spare} to spare. Get your coat.`;
+  }
+  return "You won't make it. Leave now.";
+}
+
 // Pure. True only when currentState is "red" AND previousState is not "red" (including
 // when previousState is null/undefined).
 export function shouldFireAlarm(previousState, currentState) {
