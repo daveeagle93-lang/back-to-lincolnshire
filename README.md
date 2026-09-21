@@ -83,8 +83,11 @@ Fight Mode).
 ## Deployment
 
 Deployed to [Cloudflare Pages](https://pages.cloudflare.com/) at
-**www.backtolincolnshire.co.uk**, connected to this GitHub repo for
-automatic deploys on every push to `main`.
+**backtolincolnshire.co.uk** (the apex is the canonical host; the site's
+canonical link, `sitemap.xml` and `robots.txt` all use it), connected to this
+GitHub repo for automatic deploys on every push to `main`.
+`www.backtolincolnshire.co.uk` is meant to 301-redirect to the apex via a
+Cloudflare redirect rule configured in the dashboard, not in this repo.
 
 To connect it:
 
@@ -92,9 +95,11 @@ To connect it:
    Connect to Git**, and select this repository.
 2. Framework preset: **None**. Build command: *(leave blank — no build
    step)*. Build output directory: `/` (repo root).
-3. Add the custom domain `www.backtolincolnshire.co.uk` under the project's
-   **Custom domains** tab and follow the DNS instructions (Cloudflare
-   manages DNS automatically if the domain is already on Cloudflare).
+3. Add the custom domain `backtolincolnshire.co.uk` (the apex) under the
+   project's **Custom domains** tab and follow the DNS instructions
+   (Cloudflare manages DNS automatically if the domain is already on
+   Cloudflare). Add `www.backtolincolnshire.co.uk` only for the redirect to
+   the apex.
 4. Every push to `main` triggers an automatic production deploy; other
    branches and PRs get preview deploys.
 5. Set the required environment variables and bindings (Durable Object, KV
