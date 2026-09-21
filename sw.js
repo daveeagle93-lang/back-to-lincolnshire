@@ -1,4 +1,4 @@
-const CACHE_VERSION = "v6";
+const CACHE_VERSION = "v7";
 const APP_SHELL_CACHE = `back-to-lincolnshire-shell-${CACHE_VERSION}`;
 const RUNTIME_CACHE = `back-to-lincolnshire-runtime-${CACHE_VERSION}`;
 
@@ -14,6 +14,8 @@ const APP_SHELL_URLS = [
   "/icons/icon-512.png",
   "/icons/icon-512-maskable.png",
   "/icons/apple-touch-icon.png",
+  "/favicon.svg",
+  "/favicon.ico",
   "/data/crossings.json",
   "/data/boundaries/lincolnshire-ceremonial.geojson",
   "/data/boundaries/lincolnshire-administrative.geojson",
