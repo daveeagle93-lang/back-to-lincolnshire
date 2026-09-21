@@ -1,0 +1,244 @@
+#!/usr/bin/env node
+// Smoke-checks a deployed copy of the site: www/http redirects, CSP identity across
+// _headers / security-headers.js / live responses, the real 404 page, and HEAD on
+// /api/geocode. Needs network access. Zero dependencies (Node's global fetch).
+//
+// Usage: node scripts/check-live.mjs [baseUrl]   (default https://backtolincolnshire.co.uk)
+// Redirect checks only run when the base URL's host is the apex.
+
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+
+const APEX = "backtolincolnshire.co.uk";
+const DEFAULT_BASE_URL = `https://${APEX}`;
+const TIMEOUT_MS = 15000;
+const MAX_HOPS = 6;
+
+let failures = 0;
+
+function check(label, condition, details) {
+  if (condition) {
+    console.log(`PASS: ${label}`);
+  } else {
+    console.error(`FAIL: ${label}${details ? ` — ${details}` : ""}`);
+    failures += 1;
+  }
+}
+
+function errorMessage(err) {
+  return err && err.message ? err.message : String(err);
+}
+
+// Follows redirects hop by hop without letting fetch do it, so each status and Location
+// can be asserted. Returns { hops: [{ url, status, location }], error } where error is
+// set on a fetch failure, a redirect loop (a URL seen twice) or too many hops.
+async function followChain(startUrl) {
+  const hops = [];
+  const seen = new Set();
+  let url = startUrl;
+  while (true) {
+    if (seen.has(url)) return { hops, error: `redirect loop at ${url}` };
+    if (hops.length >= MAX_HOPS) return { hops, error: `more than ${MAX_HOPS} hops` };
+    seen.add(url);
+    let res;
+    try {
+      res = await fetch(url, { redirect: "manual", signal: AbortSignal.timeout(TIMEOUT_MS) });
+    } catch (err) {
+      return { hops, error: `fetch of ${url} failed: ${errorMessage(err)}` };
+    }
+    if (res.body) await res.body.cancel().catch(() => {});
+    const location = res.headers.get("location");
+    hops.push({ url, status: res.status, location });
+    if (res.status < 300 || res.status >= 400 || !location) return { hops, error: null };
+    url = new URL(location, url).href;
+  }
+}
+
+function describeChain({ hops, error }) {
+  const text = hops.map((h) => `${h.status} ${h.url}${h.location ? ` -> ${h.location}` : ""}`).join("; ");
+  return error ? `${text || "(no hops)"}; ${error}` : text;
+}
+
+// Fetch wrapper: resolves to { res, body, error } and never throws.
+async function get(url, method = "GET") {
+  try {
+    const res = await fetch(url, { method, signal: AbortSignal.timeout(TIMEOUT_MS) });
+    const body = await res.text();
+    return { res, body, error: null };
+  } catch (err) {
+    return { res: null, body: "", error: `${method} ${url} failed: ${errorMessage(err)}` };
+  }
+}
+
+function readCspFromFiles() {
+  const repoFile = (rel) => fileURLToPath(new URL(`../${rel}`, import.meta.url));
+  const headersFile = readFileSync(repoFile("_headers"), "utf8");
+  const sharedFile = readFileSync(repoFile("functions/_shared/security-headers.js"), "utf8");
+  const fromHeaders = headersFile.match(/^\s*Content-Security-Policy:\s*(.+?)\s*$/m);
+  const fromShared = sharedFile.match(/const CSP\s*=\s*"([^"]*)"/);
+  return { fromHeaders: fromHeaders && fromHeaders[1], fromShared: fromShared && fromShared[1] };
+}
+
+async function checkRedirects() {
+  const path = "/some/path";
+
+  // 1. https://www -> apex, path and query preserved.
+  {
+    const query = "?x=1&y=two%20words";
+    const expected = `https://${APEX}${path}${query}`;
+    const chain = await followChain(`https://www.${APEX}${path}${query}`);
+    const first = chain.hops[0];
+    check(
+      "https://www redirects 301 to the apex, keeping path and query",
+      !chain.error && first && first.status === 301 && first.location === expected,
+      describeChain(chain)
+    );
+  }
+
+  // 2. http://www -> apex (expected to take 2 hops via https://www), all hops 301.
+  {
+    const expected = `https://${APEX}${path}?x=1&y=2`;
+    const chain = await followChain(`http://www.${APEX}${path}?x=1&y=2`);
+    const redirects = chain.hops.filter((h) => h.status >= 300 && h.status < 400);
+    const last = chain.hops[chain.hops.length - 1];
+    check(
+      "http://www reaches the apex over https via 301s only, no loop",
+      !chain.error && redirects.length > 0 && redirects.every((h) => h.status === 301) && last.url === expected,
+      describeChain(chain)
+    );
+  }
+
+  // 3. http://apex -> https://apex.
+  {
+    const expected = `https://${APEX}${path}?x=1`;
+    const chain = await followChain(`http://${APEX}${path}?x=1`);
+    const first = chain.hops[0];
+    check(
+      "http://apex redirects 301 to https, keeping path and query",
+      first && first.status === 301 && first.location === expected,
+      describeChain(chain)
+    );
+  }
+
+  // 4. Root URLs: www chain lands on the apex with 200; the apex itself doesn't redirect.
+  {
+    const chain = await followChain(`https://www.${APEX}/`);
+    const last = chain.hops[chain.hops.length - 1];
+    check(
+      "https://www/ ends at https://apex/ with 200",
+      !chain.error && last.url === `https://${APEX}/` && last.status === 200,
+      describeChain(chain)
+    );
+    const direct = await followChain(`https://${APEX}/`);
+    check(
+      "https://apex/ returns 200 with no redirects",
+      !direct.error && direct.hops.length === 1 && direct.hops[0].status === 200,
+      describeChain(direct)
+    );
+  }
+}
+
+async function checkCsp(base) {
+  let csp;
+  try {
+    const { fromHeaders, fromShared } = readCspFromFiles();
+    check("CSP found in _headers", Boolean(fromHeaders));
+    check("CSP found in functions/_shared/security-headers.js", Boolean(fromShared));
+    check(
+      "CSP is identical in _headers and security-headers.js",
+      Boolean(fromHeaders) && fromHeaders === fromShared,
+      `_headers: ${fromHeaders}; security-headers.js: ${fromShared}`
+    );
+    csp = fromHeaders || fromShared;
+  } catch (err) {
+    check("read CSP from repo files", false, errorMessage(err));
+    return;
+  }
+  if (!csp) return;
+
+  check("CSP does not mention unpkg.com", !csp.includes("unpkg.com"), csp);
+
+  const page = await get(`${base}/`);
+  const pageCsp = page.res && page.res.headers.get("content-security-policy");
+  check("live static page CSP matches the repo", pageCsp === csp, page.error || `got: ${pageCsp}`);
+
+  const api = await get(`${base}/api/geocode`);
+  const apiCsp = api.res && api.res.headers.get("content-security-policy");
+  check(
+    "live /api/geocode (no q) CSP matches the repo",
+    apiCsp === csp,
+    api.error || `status ${api.res.status}, got: ${apiCsp}`
+  );
+}
+
+async function check404(base) {
+  const suffix = Math.random().toString(36).slice(2, 10);
+  const { res, body, error } = await get(`${base}/no-such-page-${suffix}`);
+  check(
+    "unknown path returns a real 404 with the friendly page",
+    Boolean(res) && res.status === 404 && body.includes("wandered off the map"),
+    error || `status ${res.status}, body ${body.length} bytes`
+  );
+}
+
+async function checkHead(base) {
+  const url = `${base}/api/geocode?q=Lincoln`;
+
+  const getResult = await get(url);
+  let parsed = null;
+  try {
+    parsed = JSON.parse(getResult.body);
+  } catch {
+    // leave parsed null; reported below
+  }
+  check(
+    "GET /api/geocode?q=Lincoln returns 200 and a JSON array",
+    Boolean(getResult.res) && getResult.res.status === 200 && Array.isArray(parsed),
+    getResult.error || `status ${getResult.res.status}, body starts: ${getResult.body.slice(0, 80)}`
+  );
+
+  const head = await get(url, "HEAD");
+  check(
+    "HEAD /api/geocode?q=Lincoln returns 200 with an empty body",
+    Boolean(head.res) && head.res.status === 200 && head.body === "",
+    head.error || `status ${head.res.status}, body ${head.body.length} bytes`
+  );
+  const contentType = head.res && head.res.headers.get("content-type");
+  check(
+    "HEAD /api/geocode content-type is application/json",
+    Boolean(contentType) && contentType.startsWith("application/json"),
+    head.error || `got: ${contentType}`
+  );
+  const robots = head.res && head.res.headers.get("x-robots-tag");
+  check(
+    "HEAD /api/geocode has X-Robots-Tag noindex",
+    Boolean(robots) && robots.includes("noindex"),
+    head.error || `got: ${robots}`
+  );
+}
+
+async function main() {
+  const base = (process.argv[2] || DEFAULT_BASE_URL).replace(/\/+$/, "");
+  let hostname;
+  try {
+    hostname = new URL(base).hostname;
+  } catch {
+    console.error(`Invalid base URL: ${base}`);
+    process.exit(2);
+  }
+  console.log(`Checking ${base}`);
+
+  if (hostname === APEX) {
+    await checkRedirects();
+  } else {
+    console.log(`SKIP: redirect checks only apply to ${APEX}`);
+  }
+  await checkCsp(base);
+  await check404(base);
+  await checkHead(base);
+
+  console.log(failures === 0 ? "\nAll checks passed." : `\n${failures} check(s) failed.`);
+  process.exit(failures === 0 ? 0 : 1);
+}
+
+main();
