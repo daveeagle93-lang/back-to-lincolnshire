@@ -1,0 +1,9 @@
+[Unit]
+Description=ntfy alert for failed back-to-lincolnshire-check-live.service
+# Reuses the same notify-failure.sh (same ntfy topic/token, same alert format) as
+# open-seo-preflight-failure.service: a user-manager unit can't OnFailure= into the
+# system-manager backup-failure@.service.
+
+[Service]
+Type=oneshot
+ExecStart=/home/david/migration/backup/notify-failure.sh back-to-lincolnshire-check-live.service

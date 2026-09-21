@@ -58,7 +58,51 @@ An OSRM outage (unreachable, or a 5xx from OSRM, signalled by the
 a failure; an OSRM 4xx, a 502 without that header, or any other Function error
 fails. It needs network access and exits non-zero if any check fails.
 `npm run check-live -- <base-url>` checks another deployment (the redirect
-checks are skipped unless the host is the apex).
+checks are skipped unless the host is the apex). A GitHub Actions workflow
+(`.github/workflows/check-live.yml`) runs it after every push to main (it waits
+120s for the deploy; a FAIL fails the run).
+
+### Daily check (systemd timer on tower-dev)
+
+A systemd user timer runs `npm run check-live` daily at 06:47 UTC via
+`scripts/check-live-timer.sh`. A FAIL makes the unit fail, which triggers an ntfy
+alert through the failure unit; OSRM-down warnings exit 0 and do not alert. This
+is the single source of daily checks: the GitHub workflow only runs on pushes.
+
+The unit files live in `scripts/systemd/` and are specific to tower-dev: they
+hardcode the repo path `/home/david/dev/back-to-lincolnshire` and reuse
+`/home/david/migration/backup/notify-failure.sh`, whose ntfy topic and token live
+in `~/.secrets/ntfy/` and are deliberately not in this repo.
+
+Install (requires lingering; `loginctl show-user "$USER" -p Linger` should say
+`yes`):
+
+```sh
+systemctl --user link /home/david/dev/back-to-lincolnshire/scripts/systemd/back-to-lincolnshire-check-live.service
+systemctl --user link /home/david/dev/back-to-lincolnshire/scripts/systemd/back-to-lincolnshire-check-live-failure.service
+systemctl --user link /home/david/dev/back-to-lincolnshire/scripts/systemd/back-to-lincolnshire-check-live.timer
+systemctl --user enable --now back-to-lincolnshire-check-live.timer
+```
+
+Status:
+
+```sh
+systemctl --user list-timers back-to-lincolnshire-check-live.timer
+systemctl --user status back-to-lincolnshire-check-live.service
+```
+
+Logs (use the `-failure.service` unit for the result of the alert send):
+
+```sh
+journalctl --user -u back-to-lincolnshire-check-live.service -n 50 --no-pager
+journalctl --user -u back-to-lincolnshire-check-live-failure.service -n 50 --no-pager
+```
+
+Run it now (a FAIL sends a real alert):
+
+```sh
+systemctl --user start back-to-lincolnshire-check-live.service
+```
 
 ## API dependencies and usage limits
 

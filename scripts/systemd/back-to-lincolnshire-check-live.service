@@ -1,0 +1,9 @@
+[Unit]
+Description=Smoke-check backtolincolnshire.co.uk (npm run check-live); ntfy alert on any FAIL
+OnFailure=back-to-lincolnshire-check-live-failure.service
+
+[Service]
+# check-live exits 1 on any FAIL and 0 otherwise, so OSRM-down warnings don't alert.
+Type=oneshot
+ExecStart=/home/david/dev/back-to-lincolnshire/scripts/check-live-timer.sh
+TimeoutStartSec=300

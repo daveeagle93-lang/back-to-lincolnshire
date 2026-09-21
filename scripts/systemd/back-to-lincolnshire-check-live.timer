@@ -1,0 +1,10 @@
+[Unit]
+Description=Daily smoke-check of backtolincolnshire.co.uk (06:47 UTC)
+
+[Timer]
+OnCalendar=*-*-* 06:47:00
+Persistent=true
+Unit=back-to-lincolnshire-check-live.service
+
+[Install]
+WantedBy=timers.target
