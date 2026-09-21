@@ -51,9 +51,12 @@ so use `localhost` (not `file://`) and a hard refresh when testing changes.
 `npm run check-live` runs against https://backtolincolnshire.co.uk and checks
 the www and http redirects (path and query preserved, no loops); that the CSP is
 identical across `_headers`, `security-headers.js` and the live static and
-`/api` responses; that unknown paths return a real 404; and HEAD and GET on
-`/api/geocode` and `/api/route`. It needs network access and exits non-zero if
-any check fails.
+`/api` responses; that unknown paths return a real 404; that `/favicon.ico` and
+`/favicon.svg` return 200; and HEAD and GET on `/api/geocode` and `/api/route`.
+An OSRM outage (unreachable, or a 5xx from OSRM, signalled by the
+`X-Upstream-Status` header) on GET or HEAD `/api/route` is a warning rather than
+a failure; an OSRM 4xx, a 502 without that header, or any other Function error
+fails. It needs network access and exits non-zero if any check fails.
 `npm run check-live -- <base-url>` checks another deployment (the redirect
 checks are skipped unless the host is the apex).
 

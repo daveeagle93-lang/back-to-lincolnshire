@@ -1,7 +1,12 @@
 #!/usr/bin/env node
 // Smoke-checks a deployed copy of the site: www/http redirects, CSP identity across
-// _headers / security-headers.js / live responses, the real 404 page, and HEAD on
-// /api/geocode and /api/route. Needs network access. Zero dependencies (Node's global fetch).
+// _headers / security-headers.js / live responses, the real 404 page, HEAD on
+// /api/geocode and /api/route, and the favicon files. Needs network access. Zero
+// dependencies (Node's global fetch).
+//
+// An OSRM outage seen through /api/route (our Function's 502 with X-Upstream-Status
+// "unreachable" or a 5xx) is a WARN, not a FAIL: it isn't a fault in this site. Any other
+// route failure still fails.
 //
 // Usage: node scripts/check-live.mjs [baseUrl]   (default https://backtolincolnshire.co.uk)
 // Redirect checks only run when the base URL's host is the apex.
@@ -15,6 +20,7 @@ const TIMEOUT_MS = 15000;
 const MAX_HOPS = 6;
 
 let failures = 0;
+let warnings = 0;
 
 function check(label, condition, details) {
   if (condition) {
@@ -23,6 +29,12 @@ function check(label, condition, details) {
     console.error(`FAIL: ${label}${details ? ` — ${details}` : ""}`);
     failures += 1;
   }
+}
+
+// Like check() for a failure that isn't this site's fault: reported, but the run still passes.
+function warn(label, details) {
+  console.error(`WARN: ${label}${details ? ` — ${details}` : ""}`);
+  warnings += 1;
 }
 
 function errorMessage(err) {
@@ -181,6 +193,13 @@ async function check404(base) {
   );
 }
 
+async function checkFavicons(base) {
+  for (const file of ["favicon.ico", "favicon.svg"]) {
+    const { res, error } = await get(`${base}/${file}`);
+    check(`GET /${file} returns 200`, Boolean(res) && res.status === 200, error || `status ${res.status}`);
+  }
+}
+
 async function checkHead(base) {
   const url = `${base}/api/geocode?q=Lincoln`;
 
@@ -217,6 +236,21 @@ async function checkHead(base) {
   );
 }
 
+// OSRM is "down" when functions/api/route.js answers 502 and its X-Upstream-Status header is
+// "unreachable" (fetch threw) or a 5xx number (OSRM's own status). A 4xx number means OSRM
+// rejected our request, and a 502 without the header didn't come from that code path; neither
+// counts as down. Returns the header value, or null if OSRM isn't down.
+function osrmDownStatus(res) {
+  if (!res || res.status !== 502) return null;
+  const upstream = res.headers.get("x-upstream-status");
+  return /^(unreachable|5\d\d)$/.test(upstream ?? "") ? upstream : null;
+}
+
+// For failure details: shows why a 502 was or wasn't treated as OSRM being down.
+function describeUpstream(res) {
+  return `X-Upstream-Status: ${res.headers.get("x-upstream-status") ?? "none"}`;
+}
+
 async function checkRoute(base) {
   const url = `${base}/api/route?from=-1.1581,52.9548&to=-0.5406,53.2307`; // Nottingham -> Lincoln
 
@@ -227,24 +261,44 @@ async function checkRoute(base) {
   } catch {
     // leave parsed null; reported below
   }
-  check(
-    "GET /api/route (Nottingham -> Lincoln) returns 200 and an OSRM route",
-    Boolean(getResult.res) &&
-      getResult.res.status === 200 &&
-      Boolean(parsed) &&
-      parsed.code === "Ok" &&
-      Array.isArray(parsed.routes) &&
-      parsed.routes.length > 0 &&
-      typeof parsed.routes[0].duration === "number",
-    getResult.error || `status ${getResult.res.status}, body starts: ${getResult.body.slice(0, 80)}`
-  );
+  const getDown = osrmDownStatus(getResult.res);
+  const getLabel = "GET /api/route (Nottingham -> Lincoln) returns 200 and an OSRM route";
+  const getDetails =
+    getResult.error ||
+    `status ${getResult.res.status}, ${describeUpstream(getResult.res)}, body starts: ${getResult.body.slice(0, 80)}`;
+  if (getDown) {
+    warn(
+      `GET /api/route (Nottingham -> Lincoln): OSRM down (X-Upstream-Status: ${getDown}), our Function answered 502`,
+      getDetails
+    );
+  } else {
+    check(
+      getLabel,
+      Boolean(getResult.res) &&
+        getResult.res.status === 200 &&
+        Boolean(parsed) &&
+        parsed.code === "Ok" &&
+        Array.isArray(parsed.routes) &&
+        parsed.routes.length > 0 &&
+        typeof parsed.routes[0].duration === "number",
+      getDetails
+    );
+  }
 
+  // HEAD mirrors GET's status and headers, so it is judged the same way on its own response.
   const head = await get(url, "HEAD");
-  check(
-    "HEAD /api/route (Nottingham -> Lincoln) returns 200 with an empty body",
-    Boolean(head.res) && head.res.status === 200 && head.body === "",
-    head.error || `status ${head.res.status}, body ${head.body.length} bytes`
-  );
+  const headLabel = "HEAD /api/route (Nottingham -> Lincoln) returns 200 with an empty body";
+  const headDetails =
+    head.error || `status ${head.res.status}, ${describeUpstream(head.res)}, body ${head.body.length} bytes`;
+  const headDown = osrmDownStatus(head.res);
+  if (headDown && head.body === "") {
+    warn(
+      `HEAD /api/route (Nottingham -> Lincoln): OSRM down (X-Upstream-Status: ${headDown}), our Function answered 502`,
+      headDetails
+    );
+  } else {
+    check(headLabel, Boolean(head.res) && head.res.status === 200 && head.body === "", headDetails);
+  }
   const contentType = head.res && head.res.headers.get("content-type");
   check(
     "HEAD /api/route content-type is application/json",
@@ -288,10 +342,15 @@ async function main() {
   }
   await checkCsp(base);
   await check404(base);
+  await checkFavicons(base);
   await checkHead(base);
   await checkRoute(base);
 
-  console.log(failures === 0 ? "\nAll checks passed." : `\n${failures} check(s) failed.`);
+  if (failures === 0) {
+    console.log(warnings === 0 ? "\nAll checks passed." : `\nAll checks passed, with ${warnings} warning(s).`);
+  } else {
+    console.log(`\n${failures} check(s) failed${warnings > 0 ? `, ${warnings} warning(s)` : ""}.`);
+  }
   process.exit(failures === 0 ? 0 : 1);
 }
 
