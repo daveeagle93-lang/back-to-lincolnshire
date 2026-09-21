@@ -52,7 +52,8 @@ so use `localhost` (not `file://`) and a hard refresh when testing changes.
 the www and http redirects (path and query preserved, no loops); that the CSP is
 identical across `_headers`, `security-headers.js` and the live static and
 `/api` responses; that unknown paths return a real 404; and HEAD and GET on
-`/api/geocode`. It needs network access and exits non-zero if any check fails.
+`/api/geocode` and `/api/route`. It needs network access and exits non-zero if
+any check fails.
 `npm run check-live -- <base-url>` checks another deployment (the redirect
 checks are skipped unless the host is the apex).
 

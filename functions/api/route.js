@@ -84,3 +84,15 @@ export async function onRequestGet(context) {
     headers: { "Content-Type": "application/json" },
   });
 }
+
+// Pages Functions route HEAD separately from GET; without this, HEAD falls through
+// to the static handler and 404s, so HEAD-based uptime monitors see the endpoint as
+// down. Same status and headers as GET, no body.
+export async function onRequestHead(context) {
+  const response = await onRequestGet(context);
+  return new Response(null, {
+    status: response.status,
+    statusText: response.statusText,
+    headers: response.headers,
+  });
+}

@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Smoke-checks a deployed copy of the site: www/http redirects, CSP identity across
 // _headers / security-headers.js / live responses, the real 404 page, and HEAD on
-// /api/geocode. Needs network access. Zero dependencies (Node's global fetch).
+// /api/geocode and /api/route. Needs network access. Zero dependencies (Node's global fetch).
 //
 // Usage: node scripts/check-live.mjs [baseUrl]   (default https://backtolincolnshire.co.uk)
 // Redirect checks only run when the base URL's host is the apex.
@@ -217,6 +217,59 @@ async function checkHead(base) {
   );
 }
 
+async function checkRoute(base) {
+  const url = `${base}/api/route?from=-1.1581,52.9548&to=-0.5406,53.2307`; // Nottingham -> Lincoln
+
+  const getResult = await get(url);
+  let parsed = null;
+  try {
+    parsed = JSON.parse(getResult.body);
+  } catch {
+    // leave parsed null; reported below
+  }
+  check(
+    "GET /api/route (Nottingham -> Lincoln) returns 200 and an OSRM route",
+    Boolean(getResult.res) &&
+      getResult.res.status === 200 &&
+      Boolean(parsed) &&
+      parsed.code === "Ok" &&
+      Array.isArray(parsed.routes) &&
+      parsed.routes.length > 0 &&
+      typeof parsed.routes[0].duration === "number",
+    getResult.error || `status ${getResult.res.status}, body starts: ${getResult.body.slice(0, 80)}`
+  );
+
+  const head = await get(url, "HEAD");
+  check(
+    "HEAD /api/route (Nottingham -> Lincoln) returns 200 with an empty body",
+    Boolean(head.res) && head.res.status === 200 && head.body === "",
+    head.error || `status ${head.res.status}, body ${head.body.length} bytes`
+  );
+  const contentType = head.res && head.res.headers.get("content-type");
+  check(
+    "HEAD /api/route content-type is application/json",
+    Boolean(contentType) && contentType.startsWith("application/json"),
+    head.error || `got: ${contentType}`
+  );
+  const robots = head.res && head.res.headers.get("x-robots-tag");
+  check(
+    "HEAD /api/route has X-Robots-Tag noindex",
+    Boolean(robots) && robots.includes("noindex"),
+    head.error || `got: ${robots}`
+  );
+
+  // No from/to: fails validation before any upstream call, so HEAD should mirror GET's 400.
+  const bareGet = await get(`${base}/api/route`);
+  const bareHead = await get(`${base}/api/route`, "HEAD");
+  check(
+    "HEAD /api/route (no from/to) returns the same status as GET, with an empty body",
+    Boolean(bareGet.res) && Boolean(bareHead.res) && bareHead.res.status === bareGet.res.status && bareHead.body === "",
+    bareGet.error ||
+      bareHead.error ||
+      `GET ${bareGet.res.status}, HEAD ${bareHead.res.status}, HEAD body ${bareHead.body.length} bytes`
+  );
+}
+
 async function main() {
   const base = (process.argv[2] || DEFAULT_BASE_URL).replace(/\/+$/, "");
   let hostname;
@@ -236,6 +289,7 @@ async function main() {
   await checkCsp(base);
   await check404(base);
   await checkHead(base);
+  await checkRoute(base);
 
   console.log(failures === 0 ? "\nAll checks passed." : `\n${failures} check(s) failed.`);
   process.exit(failures === 0 ? 0 : 1);
