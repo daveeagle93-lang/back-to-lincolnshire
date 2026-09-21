@@ -478,7 +478,7 @@ function tickAlarm() {
   if (result.state === "green") {
     alarmMessageEl.textContent = `Put the kettle on — you've ${minutesSpare} minutes to spare.`;
   } else if (result.state === "amber") {
-    alarmMessageEl.textContent = "Cutting it fine. Get your coat.";
+    alarmMessageEl.textContent = `Cutting it fine — ${minutesSpare} minutes to spare. Get your coat.`;
   } else {
     alarmMessageEl.textContent = "You won't make it. Leave now.";
   }
@@ -770,7 +770,7 @@ installBtnEl.addEventListener("click", async () => {
   installBtnEl.hidden = true;
 });
 
-const SHARE_MESSAGE = "Ey up, fellow Yellow Belly — found a handy alarm that tells you if you'll be back in Lincolnshire in time for dinner.";
+const SHARE_MESSAGE = "Fellow Yellow Belly — found a handy alarm that tells you if you'll be back in Lincolnshire in time for dinner.";
 
 function getShareUrl() {
   return location.href;
