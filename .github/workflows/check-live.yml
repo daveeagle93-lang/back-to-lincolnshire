@@ -1,13 +1,11 @@
-# Smoke-checks the live site (scripts/check-live.mjs) daily and after every push to main.
+# Smoke-checks the live site (scripts/check-live.mjs) after every push to main.
 # A FAIL fails the run; WARN lines (e.g. OSRM down) are printed but do not.
+# The daily check is a systemd timer on tower-dev (see README).
 name: Check live site
 
 on:
   push:
     branches: [main]
-  schedule:
-    # Daily at 06:17 UTC; off the top of the hour, when scheduled runs are most delayed or dropped.
-    - cron: "17 6 * * *"
 
 permissions:
   contents: read
@@ -22,9 +20,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      # Give the Cloudflare Pages deploy time to land before checking. Pushes only:
-      # scheduled runs check a site that is already deployed.
+      # Give the Cloudflare Pages deploy time to land before checking.
       - name: Wait for the deploy
-        if: github.event_name == 'push'
         run: sleep 120
       - run: npm run check-live
