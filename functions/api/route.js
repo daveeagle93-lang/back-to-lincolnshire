@@ -3,10 +3,10 @@ import { getCached, setCached } from "../_shared/cache.js";
 
 const ROUTE_CACHE_TTL_SECONDS = 300; // 5 minutes
 
-function jsonError(message, status) {
+function jsonError(message, status, extraHeaders) {
   return new Response(JSON.stringify({ error: message }), {
     status,
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...extraHeaders },
   });
 }
 
@@ -60,6 +60,8 @@ export async function onRequestGet(context) {
 
   const osrmUrl = `https://router.project-osrm.org/route/v1/driving/${fromLon},${fromLat};${toLon},${toLat}?overview=full&geometries=geojson`;
 
+  // X-Upstream-Status on the two 502s below is what lets scripts/check-live.mjs tell OSRM
+  // being down ("unreachable" or a 5xx status) from OSRM rejecting our request (a 4xx status).
   let response;
   try {
     // OSRM's public demo server 403s any request with no User-Agent header at
@@ -68,12 +70,12 @@ export async function onRequestGet(context) {
     response = await fetch(osrmUrl, { headers: { "User-Agent": "BackToLincolnshire/1.0" } });
   } catch (err) {
     console.error("OSRM fetch threw", err.message);
-    return jsonError("Routing is temporarily unavailable", 502);
+    return jsonError("Routing is temporarily unavailable", 502, { "X-Upstream-Status": "unreachable" });
   }
 
   if (!response.ok) {
     console.error("OSRM returned non-OK status", response.status, await response.text());
-    return jsonError("Routing is temporarily unavailable", 502);
+    return jsonError("Routing is temporarily unavailable", 502, { "X-Upstream-Status": String(response.status) });
   }
 
   const data = await response.json();
