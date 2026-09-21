@@ -75,11 +75,58 @@ const shareFacebookBtn = document.getElementById("share-facebook-btn");
 const shareCopyBtn = document.getElementById("share-copy-btn");
 const shareStatusEl = document.getElementById("share-status");
 
-// Map, centred on Lincolnshire by default.
-const map = L.map("map").setView([53.1, -0.3], 8);
-L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-  attribution: "&copy; OpenStreetMap contributors",
-}).addTo(map);
+// Map, centred on Lincolnshire by default. Leaflet (CSS + JS from unpkg) is loaded lazily
+// after the window `load` event instead of in <head>, so a render-blocking third-party
+// stylesheet can't delay first paint of the intro and deadline buttons. Anything that needs
+// the map before it exists is queued via whenMapReady and replayed, in order, once it does.
+const LEAFLET_CSS_URL = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css";
+const LEAFLET_JS_URL = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js";
+let map = null;
+let pendingMapWork = [];
+
+function whenMapReady(fn) {
+  if (map) fn();
+  else pendingMapWork.push(fn);
+}
+
+function loadLeaflet() {
+  const cssLoaded = new Promise((resolve, reject) => {
+    const link = document.createElement("link");
+    link.rel = "stylesheet";
+    link.href = LEAFLET_CSS_URL;
+    link.onload = resolve;
+    link.onerror = reject;
+    document.head.appendChild(link);
+  });
+  const jsLoaded = new Promise((resolve, reject) => {
+    const script = document.createElement("script");
+    script.src = LEAFLET_JS_URL;
+    script.onload = resolve;
+    script.onerror = reject;
+    document.head.appendChild(script);
+  });
+  return Promise.all([cssLoaded, jsLoaded]);
+}
+
+function initMap() {
+  map = L.map("map").setView([53.1, -0.3], 8);
+  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+    attribution: "&copy; OpenStreetMap contributors",
+  }).addTo(map);
+  const work = pendingMapWork;
+  pendingMapWork = [];
+  work.forEach((fn) => fn());
+}
+
+function startMap() {
+  loadLeaflet().then(initMap, () => {
+    appErrorEl.textContent = "Couldn't load the map — check your connection and give it a reload.";
+    appErrorEl.hidden = false;
+  });
+}
+
+if (document.readyState === "complete") startMap();
+else window.addEventListener("load", startMap);
 
 let marker = null;
 let boundaryLayer = null;
@@ -115,12 +162,14 @@ function setBoundaryType(type) {
 function drawBoundary(type) {
   const data = boundaryData[type];
   if (!data) return;
-  if (boundaryLayer) {
-    map.removeLayer(boundaryLayer);
-  }
-  boundaryLayer = L.geoJSON(data, {
-    style: { color: "#1a5d1a", weight: 2, fill: false },
-  }).addTo(map);
+  whenMapReady(() => {
+    if (boundaryLayer) {
+      map.removeLayer(boundaryLayer);
+    }
+    boundaryLayer = L.geoJSON(data, {
+      style: { color: "#1a5d1a", weight: 2, fill: false },
+    }).addTo(map);
+  });
 }
 
 function updateStatusMessage(type) {
@@ -165,10 +214,12 @@ function clearRoute() {
   routeResultEl.hidden = true;
   routePrimaryEl.textContent = "";
   routeAlternativesEl.innerHTML = "";
-  if (routeLayer) {
-    map.removeLayer(routeLayer);
-    routeLayer = null;
-  }
+  whenMapReady(() => {
+    if (routeLayer) {
+      map.removeLayer(routeLayer);
+      routeLayer = null;
+    }
+  });
   lastFastestDurationSeconds = null;
   lastFastestCrossingName = null;
   lastGoodResultAt = null;
@@ -283,22 +334,26 @@ async function computeRoute(type) {
     routeAlternativesEl.appendChild(li);
   });
 
-  if (routeLayer) {
-    map.removeLayer(routeLayer);
-  }
-  routeLayer = L.geoJSON(fastest.geometry, {
-    style: { color: "#1a5d1a", weight: 4 },
-  }).addTo(map);
+  whenMapReady(() => {
+    if (routeLayer) {
+      map.removeLayer(routeLayer);
+    }
+    routeLayer = L.geoJSON(fastest.geometry, {
+      style: { color: "#1a5d1a", weight: 4 },
+    }).addTo(map);
+  });
 }
 
 function setPoint(lon, lat) {
   lastPoint = [lon, lat];
-  if (marker) {
-    marker.setLatLng([lat, lon]);
-  } else {
-    marker = L.marker([lat, lon]).addTo(map);
-  }
-  map.setView([lat, lon], 12);
+  whenMapReady(() => {
+    if (marker) {
+      marker.setLatLng([lat, lon]);
+    } else {
+      marker = L.marker([lat, lon]).addTo(map);
+    }
+    map.setView([lat, lon], 12);
+  });
   updateStatusMessage(boundarySelect.value);
   if (isOutsideBoundary(boundarySelect.value)) {
     computeRoute(boundarySelect.value);
