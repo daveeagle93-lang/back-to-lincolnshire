@@ -135,8 +135,8 @@ function updateStatusMessage(type) {
   }
   const inside = isInsideBoundary(lastPoint, data);
   statusMessageEl.textContent = inside
-    ? "You're already in Lincolnshire."
-    : `You're outside Lincolnshire (${type} boundary).`;
+    ? "You're already in Lincolnshire — nowt to worry about."
+    : `You're outside Lincolnshire (${type} boundary) — best get back.`;
 }
 
 function isOutsideBoundary(type) {
@@ -196,7 +196,7 @@ async function computeRoute(type) {
 
   const requestId = ++routeRequestId;
   routeResultEl.hidden = false;
-  routePrimaryEl.textContent = "Calculating route...";
+  routePrimaryEl.textContent = "Working out the way home...";
   routeAlternativesEl.innerHTML = "";
 
   // Light throttling: smooth out bursts (rapid boundary toggling, the background
@@ -253,8 +253,8 @@ async function computeRoute(type) {
         (result) => result.status === "rejected" && result.reason && result.reason.message === "rate-limited"
       );
       routePrimaryEl.textContent = rateLimited
-        ? "Routing service is busy right now — try again in a moment."
-        : "Couldn't calculate a route right now.";
+        ? "The routing service is having a busy spell — try again in a moment."
+        : "Couldn't work out a route just now — try again in a bit.";
     }
     routeAlternativesEl.innerHTML = "";
     return;
@@ -395,7 +395,7 @@ function tickAlarm() {
     alarmBannerEl.classList.remove(...ALARM_STATE_CLASSES);
     alarmBannerEl.classList.add("state-red");
     setPageState("red");
-    alarmMessageEl.textContent = `${formatPresetLabel(selectedPreset, rawDeadlineMs)} has already passed today — you'd best hurry back!`;
+    alarmMessageEl.textContent = `${formatPresetLabel(selectedPreset, rawDeadlineMs)} has already passed today. You're late — get back sharpish!`;
     alarmCountdownEl.textContent = "";
     alarmStaleNoticeEl.hidden = true;
     releaseWakeLock();
@@ -421,11 +421,11 @@ function tickAlarm() {
 
   const minutesSpare = Math.round(result.marginSeconds / 60);
   if (result.state === "green") {
-    alarmMessageEl.textContent = `You'll make it, with ${minutesSpare} minutes to spare.`;
+    alarmMessageEl.textContent = `Put the kettle on — you've ${minutesSpare} minutes to spare.`;
   } else if (result.state === "amber") {
-    alarmMessageEl.textContent = `Cutting it close — about ${minutesSpare} minutes of margin left.`;
+    alarmMessageEl.textContent = "Cutting it fine. Get your coat.";
   } else {
-    alarmMessageEl.textContent = "You won't make it — leave now!";
+    alarmMessageEl.textContent = "You won't make it. Leave now.";
   }
 
   alarmCountdownEl.textContent = formatCountdown(effectiveDeadlineMs - Date.now());
@@ -493,7 +493,7 @@ function playAlarmSound() {
 function fireAlarm() {
   if ("Notification" in window && Notification.permission === "granted") {
     try {
-      new Notification("Back to Lincolnshire", { body: "You won't make it — leave now!" });
+      new Notification("Back to Lincolnshire", { body: "You won't make it. Leave now." });
     } catch (err) {
       // Some browsers throw if not in a suitable context; fall through to the audible alarm.
     }
@@ -573,7 +573,7 @@ boundarySelect.addEventListener("change", () => {
 useLocationBtn.addEventListener("click", () => {
   locationMessageEl.textContent = "";
   if (!("geolocation" in navigator)) {
-    locationMessageEl.textContent = "Geolocation isn't supported by your browser.";
+    locationMessageEl.textContent = "Your browser can't tell us where you are — try typing an address instead.";
     return;
   }
   navigator.geolocation.getCurrentPosition(
@@ -581,13 +581,13 @@ useLocationBtn.addEventListener("click", () => {
       setPoint(position.coords.longitude, position.coords.latitude);
     },
     (error) => {
-      let message = "Couldn't get your location.";
+      let message = "Couldn't find where you've got to.";
       if (error.code === error.PERMISSION_DENIED) {
-        message = "Location access was denied. You can type an address instead.";
+        message = "Location access was denied, so we can't see where you've wandered off to. You can type an address instead.";
       } else if (error.code === error.POSITION_UNAVAILABLE) {
-        message = "Your location is currently unavailable.";
+        message = "Can't pin down where you are right now.";
       } else if (error.code === error.TIMEOUT) {
-        message = "Timed out trying to get your location.";
+        message = "Took too long trying to find you — have another go.";
       }
       locationMessageEl.textContent = message;
     }
@@ -612,7 +612,7 @@ addressForm.addEventListener("submit", async (event) => {
     return;
   }
 
-  locationMessageEl.textContent = "Searching...";
+  locationMessageEl.textContent = "Having a look...";
 
   // Proxied through a same-origin Pages Function, which sets a proper
   // Nominatim User-Agent/contact and applies rate limiting and caching
@@ -623,14 +623,14 @@ addressForm.addEventListener("submit", async (event) => {
     const response = await fetch(url);
     if (response.status === 429) {
       if (requestId !== geocodeRequestId) return; // superseded by a newer search
-      locationMessageEl.textContent = "Search is busy right now — try again in a moment.";
+      locationMessageEl.textContent = "Search is having a busy spell — try again in a moment.";
       return;
     }
     const cachedAt = response.headers.get("X-Cached-At");
     const results = await response.json();
     if (requestId !== geocodeRequestId) return; // superseded by a newer search
     if (!results.length) {
-      locationMessageEl.textContent = "No results found.";
+      locationMessageEl.textContent = "Never heard of it — try another spelling or a nearby town.";
       return;
     }
     const { lat, lon } = results[0];
@@ -648,7 +648,7 @@ addressForm.addEventListener("submit", async (event) => {
     }
   } catch (err) {
     if (requestId !== geocodeRequestId) return; // superseded by a newer search
-    locationMessageEl.textContent = "Something went wrong searching for that address.";
+    locationMessageEl.textContent = "That didn't work — something went wrong searching for that address.";
   }
 });
 
@@ -668,7 +668,7 @@ async function loadBoundaries() {
     drawBoundary(type);
     updateStatusMessage(type);
   } catch (err) {
-    appErrorEl.textContent = "Couldn't load boundary data — check your connection and reload.";
+    appErrorEl.textContent = "Couldn't load the county boundary — check your connection and give it a reload.";
     appErrorEl.hidden = false;
   }
 }
@@ -715,7 +715,7 @@ installBtnEl.addEventListener("click", async () => {
   installBtnEl.hidden = true;
 });
 
-const SHARE_MESSAGE = "Hey, fellow Yellow Belly — found this useful tool, you might like it too.";
+const SHARE_MESSAGE = "Ey up, fellow Yellow Belly — found a handy alarm that tells you if you'll be back in Lincolnshire in time for dinner.";
 
 function getShareUrl() {
   return location.href;
