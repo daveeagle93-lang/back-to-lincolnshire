@@ -83,11 +83,13 @@ Fight Mode).
 ## Deployment
 
 Deployed to [Cloudflare Pages](https://pages.cloudflare.com/) at
-**backtolincolnshire.co.uk** (the apex is the canonical host; the site's
-canonical link, `sitemap.xml` and `robots.txt` all use it), connected to this
-GitHub repo for automatic deploys on every push to `main`.
-`www.backtolincolnshire.co.uk` is meant to 301-redirect to the apex via a
-Cloudflare redirect rule configured in the dashboard, not in this repo.
+**backtolincolnshire.co.uk**, connected to this GitHub repo for automatic
+deploys on every push to `main`. The apex is the canonical host: the site's
+canonical link, `og:url`, `sitemap.xml` and `robots.txt` all use it.
+`www.backtolincolnshire.co.uk` 301-redirects to the apex, preserving the path
+and query string, via a Cloudflare Single Redirect rule, and Cloudflare's
+Always Use HTTPS setting redirects `http://` to `https://`. Both are
+dashboard settings, not something in this repo.
 
 To connect it:
 
