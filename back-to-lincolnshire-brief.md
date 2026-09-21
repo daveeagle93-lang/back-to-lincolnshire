@@ -7,7 +7,7 @@ with a deadline alarm and abuse protection.
 - **Product name:** Back to Lincolnshire
 - **Tagline:** The Yellow Belly Alarm ("Yellow Belly" is the traditional nickname
   for a Lincolnshire native)
-- **Domain:** www.backtolincolnshire.co.uk
+- **Domain:** backtolincolnshire.co.uk (canonical; www 301-redirects to it)
 - **Repo:** GitHub, deployed via Cloudflare Pages Git integration
 
 ---
@@ -16,7 +16,7 @@ with a deadline alarm and abuse protection.
 
 Build a public, installable single-page web app called "Back to Lincolnshire", with
 the tagline "The Yellow Belly Alarm", deployed to Cloudflare Pages at
-www.backtolincolnshire.co.uk. It tells a visitor how long it will take to drive back
+backtolincolnshire.co.uk. It tells a visitor how long it will take to drive back
 across the Lincolnshire county border, lets them set an arrival deadline with a
 countdown and alarm, installs to a phone home screen as a PWA, and is protected
 against abuse of the free APIs it relies on. Build it in the stages below, committing

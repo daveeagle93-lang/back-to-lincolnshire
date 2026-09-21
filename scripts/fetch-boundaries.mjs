@@ -16,7 +16,7 @@ import path from "node:path";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, "..");
 
-const USER_AGENT = "BackToLincolnshire-DataPipeline/0.1 (+https://www.backtolincolnshire.co.uk)";
+const USER_AGENT = "BackToLincolnshire-DataPipeline/0.1 (+https://backtolincolnshire.co.uk)";
 const NOMINATIM_BASE = "https://nominatim.openstreetmap.org/search";
 const RATE_LIMIT_MS = 1100;
 

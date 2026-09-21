@@ -70,7 +70,8 @@ of this stage's own rate limiting.
 
 ## 7. Custom domain
 
-Connecting `www.backtolincolnshire.co.uk` is covered in the README's
+Connecting the custom domain (the apex `backtolincolnshire.co.uk`, with www
+301-redirected to it) is covered in the README's
 [Deployment](../README.md#deployment) section — nothing specific to this
 stage changes that process; it's referenced here only so this document's
 step list is complete.
