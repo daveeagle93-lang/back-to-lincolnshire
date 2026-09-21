@@ -22,8 +22,10 @@ countdown, alarm, and abuse protection for the free APIs it relies on.
   last-known-result view, and keeps the screen awake during an active
   countdown.
 
-This repo is being built in stages (see `back-to-lincolnshire-brief.md` for
-the full build brief); the app code lands in later commits.
+The app is built and live at
+[backtolincolnshire.co.uk](https://backtolincolnshire.co.uk).
+`back-to-lincolnshire-brief.md` is the original staged build brief, kept for
+history.
 
 See [`docs/architecture.md`](docs/architecture.md) for the non-obvious "why"
 behind a few design decisions (the crossing-verification method, local sunset
@@ -31,9 +33,9 @@ calculation, duplicated CSP, and the rate limiter's fail-open behavior).
 
 ## Local development
 
-This is a static site with no build step. Once the app code exists
-(`index.html`, `app.js`, `styles.css`, `manifest.webmanifest`, `sw.js`),
-serve the repo root with any static file server, e.g.:
+This is a static site with no build step (`index.html`, `app.js`,
+`styles.css`, `manifest.webmanifest`, `sw.js`). Serve the repo root with any
+static file server, e.g.:
 
 ```sh
 npx serve .
