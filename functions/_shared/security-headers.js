@@ -28,6 +28,8 @@ export function withSecurityHeaders(response) {
   headers.set("X-Frame-Options", "DENY");
   headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
   headers.set("X-Content-Type-Options", "nosniff");
+  // Duplicated in ../../_headers — keep the two in sync by hand.
+  headers.set("Strict-Transport-Security", "max-age=86400");
   return new Response(response.body, {
     status: response.status,
     statusText: response.statusText,

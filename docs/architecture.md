@@ -46,6 +46,20 @@ aren't covered by it, so `security-headers.js` applies the same headers in
 code instead. There's no build step in this project to generate one from the
 other, so **when changing the CSP, update both files by hand.**
 
+## HSTS starts at one day
+
+`Strict-Transport-Security` is set in the same two places as the CSP:
+`_headers` for static responses and `functions/_shared/security-headers.js`
+for Function responses. Both must be edited by hand together.
+
+The `max-age` is 86400 (one day), with no `includeSubDomains` and no
+`preload`, on purpose: a mistake is easy to back out. Once it has been stable
+for a few weeks it can be raised to a year (`31536000`) — change both files.
+
+To back out, ship `max-age=0`. Merely removing the header does **not** make
+browsers forget the policy; it lasts until `max-age` expires or they see
+`max-age=0` over HTTPS.
+
 ## The rate limiter fails open
 
 `functions/_shared/rate-limit.js`'s `checkRateLimit` prefers Cloudflare's
