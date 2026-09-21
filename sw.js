@@ -1,4 +1,4 @@
-const CACHE_VERSION = "v5";
+const CACHE_VERSION = "v6";
 const APP_SHELL_CACHE = `back-to-lincolnshire-shell-${CACHE_VERSION}`;
 const RUNTIME_CACHE = `back-to-lincolnshire-runtime-${CACHE_VERSION}`;
 
@@ -17,8 +17,11 @@ const APP_SHELL_URLS = [
   "/data/crossings.json",
   "/data/boundaries/lincolnshire-ceremonial.geojson",
   "/data/boundaries/lincolnshire-administrative.geojson",
-  "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css",
-  "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js",
+  "/vendor/leaflet/leaflet.css",
+  "/vendor/leaflet/leaflet.js",
+  "/vendor/leaflet/images/marker-icon.png",
+  "/vendor/leaflet/images/marker-icon-2x.png",
+  "/vendor/leaflet/images/marker-shadow.png",
 ];
 
 self.addEventListener("install", (event) => {

@@ -75,12 +75,12 @@ const shareFacebookBtn = document.getElementById("share-facebook-btn");
 const shareCopyBtn = document.getElementById("share-copy-btn");
 const shareStatusEl = document.getElementById("share-status");
 
-// Map, centred on Lincolnshire by default. Leaflet (CSS + JS from unpkg) is loaded lazily
+// Map, centred on Lincolnshire by default. Leaflet (self-hosted CSS + JS under /vendor/leaflet/) is loaded lazily
 // after the window `load` event instead of in <head>, so a render-blocking third-party
 // stylesheet can't delay first paint of the intro and deadline buttons. Anything that needs
 // the map before it exists is queued via whenMapReady and replayed, in order, once it does.
-const LEAFLET_CSS_URL = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css";
-const LEAFLET_JS_URL = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js";
+const LEAFLET_CSS_URL = "/vendor/leaflet/leaflet.css";
+const LEAFLET_JS_URL = "/vendor/leaflet/leaflet.js";
 let map = null;
 let pendingMapWork = [];
 
@@ -109,6 +109,8 @@ function loadLeaflet() {
 }
 
 function initMap() {
+  // Explicit path instead of Leaflet's CSS-based detection of where its marker images live.
+  L.Icon.Default.imagePath = "/vendor/leaflet/images/";
   map = L.map("map").setView([53.1, -0.3], 8);
   L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
     attribution: "&copy; OpenStreetMap contributors",
