@@ -69,6 +69,13 @@ A systemd user timer runs `npm run check-live` daily at 06:47 UTC via
 alert through the failure unit; OSRM-down warnings exit 0 and do not alert. This
 is the single source of daily checks: the GitHub workflow only runs on pushes.
 
+Because the timer is `Persistent=true`, a run missed while tower-dev was off (e.g. over a
+reboot) fires as soon as the timer starts again, which can be before the network is up; user
+units have no `network-online.target` to depend on. To avoid a false alert from such a
+catch-up run, the wrapper first polls DNS resolution of `backtolincolnshire.co.uk` every 10s
+for up to 2 minutes before running the check, and skips the run without alerting if DNS never
+comes up in that window.
+
 The unit files live in `scripts/systemd/` and are specific to tower-dev: they
 hardcode the repo path `/home/david/dev/back-to-lincolnshire` and reuse
 `/home/david/migration/backup/notify-failure.sh`, whose ntfy topic and token live
